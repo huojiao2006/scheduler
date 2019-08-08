@@ -5,7 +5,6 @@
 package global
 
 import (
-	"os"
 	"strings"
 	"sync"
 
@@ -18,9 +17,8 @@ import (
 )
 
 type GlobalCfg struct {
-	cfg      *config.Config
-	database *gorm.DB
-	etcd     *etcd.Etcd
+	cfg  *config.Config
+	etcd *etcd.Etcd
 }
 
 var instance *GlobalCfg
@@ -38,7 +36,6 @@ func newGlobalCfg() *GlobalCfg {
 	g := &GlobalCfg{cfg: cfg}
 
 	g.setLoggerLevel()
-	g.openDatabase()
 	g.openEtcd()
 
 	if err := agent.Listen(agent.Options{
@@ -46,25 +43,6 @@ func newGlobalCfg() *GlobalCfg {
 	}); err != nil {
 		logger.Critical(nil, "Failed to start gops agent")
 	}
-	return g
-}
-
-func (g *GlobalCfg) openDatabase() *GlobalCfg {
-	if g.cfg.Mysql.Disable {
-		logger.Debug(nil, "%+s", "Database setting for Mysql.Disable is true.")
-		return g
-	}
-	isSucc := aldb.GetInstance().InitDataPool()
-
-	if !isSucc {
-		logger.Critical(nil, "%+s", "Init database pool failure...")
-		os.Exit(1)
-	}
-	logger.Debug(nil, "%+s", "Init database pool successfully.")
-
-	db := aldb.GetInstance().GetMysqlDB()
-	g.database = db
-	logger.Debug(nil, "%+s", "Set globalcfg database value.")
 	return g
 }
 
@@ -90,8 +68,4 @@ func (g *GlobalCfg) setLoggerLevel() *GlobalCfg {
 
 func (g *GlobalCfg) GetEtcd() *etcd.Etcd {
 	return g.etcd
-}
-
-func (g *GlobalCfg) GetDB() *gorm.DB {
-	return g.database
 }

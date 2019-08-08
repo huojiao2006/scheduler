@@ -9,7 +9,7 @@ const (
 )
 
 const (
-	EtcdPrefix       = "billing/"
+	EtcdPrefix         = "billing/"
 	BillingTopicPrefix = "bl-job"
 	MaxWorkingBillings = 5
 )
@@ -17,3 +17,5 @@ const (
 const (
 	ServiceName = "Billing"
 )
+
+const MIME_MERGEPATCH = "application/merge-patch+json"
