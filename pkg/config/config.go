@@ -25,10 +25,10 @@ type Config struct {
 
 	App struct {
 		Host string `default:"localhost"`
-		Port string `default:"9201"`
+		Port string `default:"8081"`
 
 		ApiHost string `default:"localhost"`
-		ApiPort string `default:"9200"`
+		ApiPort string `default:"8080"`
 	}
 }
 
