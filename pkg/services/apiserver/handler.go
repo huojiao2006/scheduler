@@ -44,18 +44,39 @@ type Event struct {
 type Watcher struct {
 	key       string
 	eventChan chan Event
+	stopChan  chan string
 }
 
 func NewWatcher(key string) *Watcher {
 	return &Watcher{
 		key:       key,
 		eventChan: make(chan Event, 10),
+		stopChan:  make(chan string, 1),
 	}
 }
 
 func (wc *Watcher) watch() {
 	e := global.GetInstance().GetEtcd()
-	watchRes := e.Watch(context.Background(), wc.key, clientv3.WithPrefix())
+
+	defer close(wc.eventChan)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancelRoutine := make(chan struct{})
+	defer close(cancelRoutine)
+
+	watchRes := e.Watch(ctx, wc.key, clientv3.WithPrefix())
+
+	go func() {
+		for {
+			select {
+			case <-wc.stopChan:
+				cancel()
+				return
+			case <-cancelRoutine:
+				return
+			}
+		}
+	}()
 
 	for res := range watchRes {
 		for _, ev := range res.Events {
@@ -68,6 +89,12 @@ func (wc *Watcher) watch() {
 			}
 		}
 	}
+
+	logger.Info(nil, "watch ended")
+}
+
+func (wc *Watcher) stop() {
+	wc.stopChan <- "close"
 }
 
 func CreateNode(request *restful.Request, response *restful.Response) {
@@ -117,16 +144,22 @@ func DescribeNodes(request *restful.Request, response *restful.Response) {
 		response.Write([]byte(result + "\n"))
 		response.Flush()
 
+		notify := response.CloseNotify()
+
 		for {
 			select {
 			case event := <-watcher.eventChan:
 				response.Write([]byte(event.event + " " + event.value + "\n"))
 				response.Flush()
 				logger.Info(nil, "DescribeNodes got event [%s] [%s]", event.event, event.value)
+			case <-notify:
+				watcher.stop()
+				logger.Info(nil, "DescribeNodes disconnected")
+				return
 			}
 		}
 	} else {
-		response.Write([]byte(result))
+		response.Write([]byte(result + "\n"))
 	}
 }
 
