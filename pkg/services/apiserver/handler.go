@@ -4,6 +4,7 @@ import (
 	//"fmt"
 
 	"context"
+	"encoding/json"
 
 	"github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/mvcc/mvccpb"
@@ -36,20 +37,35 @@ func Wrap(err error) Error {
 	return Error{Message: err.Error()}
 }
 
+type Info struct {
+	Value          string `json:"Value"`
+	CreateRevision int64  `json:"CreateRevision"`
+	ModRevision    int64  `json:"ModRevision"`
+	Version        int64  `json:"Version"`
+}
+
 type Event struct {
-	event string
-	value string
+	Event string `json:"Event"`
+	Value Info   `json:"Value"`
 }
 
 type Watcher struct {
 	key       string
+	storage   []Info
 	eventChan chan Event
 	stopChan  chan string
 }
 
-func NewWatcher(key string) *Watcher {
+func NewWatcher(key string, initValue *Info) *Watcher {
+	storage := []Info{}
+
+	if initValue != nil {
+		storage = append(storage, *initValue)
+	}
+
 	return &Watcher{
 		key:       key,
+		storage:   storage,
 		eventChan: make(chan Event, 10),
 		stopChan:  make(chan string, 1),
 	}
@@ -78,14 +94,38 @@ func (wc *Watcher) watch() {
 		}
 	}()
 
+	if len(wc.storage) > 0 {
+		wc.eventChan <- Event{"ADD", wc.storage[0]}
+	}
+
 	for res := range watchRes {
 		for _, ev := range res.Events {
 			if ev.Type == mvccpb.PUT {
 				logger.Info(nil, "watch got put event [%s] [%s]", string(ev.Kv.Key), string(ev.Kv.Value))
-				wc.eventChan <- Event{"put", string(ev.Kv.Value)}
+				info := Info{
+					Value:          string(ev.Kv.Value),
+					CreateRevision: ev.Kv.CreateRevision,
+					ModRevision:    ev.Kv.ModRevision,
+					Version:        ev.Kv.Version,
+				}
+				event := "MODIFY"
+				if len(wc.storage) == 0 {
+					event = "ADD"
+				}
+				wc.storage = append(wc.storage, info)
+				eventInfo := Event{
+					Event: event,
+					Value: info,
+				}
+				wc.eventChan <- eventInfo
 			} else if ev.Type == mvccpb.DELETE {
 				logger.Info(nil, "watch got delete event [%s] [%s]", string(ev.Kv.Key), string(ev.Kv.Value))
-				wc.eventChan <- Event{"delete", string(ev.Kv.Value)}
+				eventInfo := Event{
+					Event: "DELETE",
+					Value: wc.storage[len(wc.storage)-1],
+				}
+				wc.eventChan <- eventInfo
+				wc.storage = []Info{}
 			}
 		}
 	}
@@ -128,7 +168,7 @@ func DescribeNodes(request *restful.Request, response *restful.Response) {
 
 	key := "nodes/" + node
 
-	result, err := getInfo(key)
+	initValue, err := getInfo(key)
 	if err != nil {
 		logger.Debug(nil, "CreateNode request data error %+v.", err)
 		response.WriteHeaderAndEntity(http.StatusInternalServerError, Wrap(err))
@@ -138,20 +178,17 @@ func DescribeNodes(request *restful.Request, response *restful.Response) {
 	logger.Debug(nil, "DescribeNodes success")
 
 	if watch {
-		watcher := NewWatcher(key)
+		watcher := NewWatcher(key, initValue)
 		go watcher.watch()
-
-		response.Write([]byte(result + "\n"))
-		response.Flush()
 
 		notify := response.CloseNotify()
 
 		for {
 			select {
 			case event := <-watcher.eventChan:
-				response.Write([]byte(event.event + " " + event.value + "\n"))
+				response.Write([]byte(formatEvent(event) + "\n"))
 				response.Flush()
-				logger.Info(nil, "DescribeNodes got event [%s] [%s]", event.event, event.value)
+				logger.Info(nil, "DescribeNodes got event [%v]", event)
 			case <-notify:
 				watcher.stop()
 				logger.Info(nil, "DescribeNodes disconnected")
@@ -159,11 +196,30 @@ func DescribeNodes(request *restful.Request, response *restful.Response) {
 			}
 		}
 	} else {
-		response.Write([]byte(result + "\n"))
+		response.Write([]byte(formatInfo(initValue) + "\n"))
 	}
 }
 
-func getInfo(key string) (string, error) {
+func formatEvent(event Event) string {
+	eventBytes, err := json.Marshal(event)
+	if err != nil {
+		logger.Error(nil, "formatEvent error [%v]", err)
+	}
+
+	return string(eventBytes)
+}
+
+func formatInfo(info *Info) string {
+	if nil == info {
+		return "{}"
+	}
+
+	infoBytes, _ := json.Marshal(*info)
+
+	return string(infoBytes)
+}
+
+func getInfo(key string) (*Info, error) {
 	ctx := context.Background()
 	e := global.GetInstance().GetEtcd()
 
@@ -171,16 +227,20 @@ func getInfo(key string) (string, error) {
 
 	if err != nil {
 		logger.Error(ctx, "getInfo [%s] from etcd failed: %+v", key, err)
-		return "", err
+		return nil, err
 	}
-
-	result := ""
 
 	if len(getResp.Kvs) != 0 {
-		result = string(getResp.Kvs[0].Value)
+		info := Info{
+			Value:          string(getResp.Kvs[0].Value),
+			CreateRevision: getResp.Kvs[0].CreateRevision,
+			ModRevision:    getResp.Kvs[0].ModRevision,
+			Version:        getResp.Kvs[0].Version,
+		}
+		return &info, nil
+	} else {
+		return nil, nil
 	}
-
-	return result, nil
 }
 
 func putInfo(key string, info string, expireTime int64) error {
