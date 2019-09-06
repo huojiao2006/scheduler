@@ -5,6 +5,7 @@ import (
 
 	"context"
 	"encoding/json"
+	"strings"
 
 	"github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/mvcc/mvccpb"
@@ -38,7 +39,7 @@ func Wrap(err error) Error {
 }
 
 type Info struct {
-	Value          string `json:"Value"`
+	Value          []byte `json:"Value"`
 	CreateRevision int64  `json:"CreateRevision"`
 	ModRevision    int64  `json:"ModRevision"`
 	Version        int64  `json:"Version"`
@@ -51,23 +52,63 @@ type Event struct {
 
 type Watcher struct {
 	key       string
-	storage   []Info
+	filter    string
+	storage   []Event
 	eventChan chan Event
 	stopChan  chan string
 }
 
-func NewWatcher(key string, initValue *Info) *Watcher {
-	storage := []Info{}
+func NewWatcher(key string, initValue *Info, filter string) *Watcher {
+	storage := []Event{}
 
 	if initValue != nil {
-		storage = append(storage, *initValue)
+		storage = append(storage, Event{"ADD", *initValue})
 	}
 
 	return &Watcher{
 		key:       key,
+		filter:    filter,
 		storage:   storage,
 		eventChan: make(chan Event, 10),
 		stopChan:  make(chan string, 1),
+	}
+}
+
+func filterEvent(value []byte, filter string) bool {
+	logger.Info(nil, "filterEvent [%v] [%s]", value, filter)
+
+	var map_value map[string]interface{}
+
+	err := json.Unmarshal(value, &map_value)
+	if err != nil {
+		logger.Error(nil, "filterEvent error [%v]", err)
+		return false
+	}
+
+	if filter == "" {
+		return true
+	}
+
+	expr := strings.Split(filter, "=")
+	left := ""
+	right := ""
+	if len(expr) == 2 {
+		left = expr[0]
+		right = expr[1]
+	} else if len(expr) == 1 {
+		left = expr[0]
+	} else {
+		return true
+	}
+
+	if val, ok := map_value[left]; ok {
+		if right == val.(string) {
+			return true
+		} else {
+			return false
+		}
+	} else {
+		return false
 	}
 }
 
@@ -95,7 +136,11 @@ func (wc *Watcher) watch() {
 	}()
 
 	if len(wc.storage) > 0 {
-		wc.eventChan <- Event{"ADD", wc.storage[0]}
+		if filterEvent(wc.storage[0].Value.Value, wc.filter) {
+			wc.eventChan <- wc.storage[0]
+		} else {
+			wc.storage[0].Event = "DELETE"
+		}
 	}
 
 	for res := range watchRes {
@@ -103,29 +148,57 @@ func (wc *Watcher) watch() {
 			if ev.Type == mvccpb.PUT {
 				logger.Info(nil, "watch got put event [%s] [%s]", string(ev.Kv.Key), string(ev.Kv.Value))
 				info := Info{
-					Value:          string(ev.Kv.Value),
+					Value:          ev.Kv.Value,
 					CreateRevision: ev.Kv.CreateRevision,
 					ModRevision:    ev.Kv.ModRevision,
 					Version:        ev.Kv.Version,
 				}
+				notifyWatcher := true
 				event := "MODIFY"
-				if len(wc.storage) == 0 {
-					event = "ADD"
+				if filterEvent(info.Value, wc.filter) {
+					if len(wc.storage) == 0 {
+						event = "ADD"
+					} else if wc.storage[len(wc.storage)-1].Event == "DELETE" {
+						event = "ADD"
+					}
+				} else {
+					if len(wc.storage) == 0 {
+						notifyWatcher = false
+					} else if wc.storage[len(wc.storage)-1].Event == "DELETE" {
+						notifyWatcher = false
+					}
+					event = "DELETE"
 				}
-				wc.storage = append(wc.storage, info)
 				eventInfo := Event{
 					Event: event,
 					Value: info,
 				}
-				wc.eventChan <- eventInfo
+				if notifyWatcher {
+					wc.eventChan <- eventInfo
+				}
+				wc.storage = append(wc.storage, Event{event, info})
 			} else if ev.Type == mvccpb.DELETE {
 				logger.Info(nil, "watch got delete event [%s] [%s]", string(ev.Kv.Key), string(ev.Kv.Value))
+				info := Info{
+					Value:          ev.Kv.Value,
+					CreateRevision: ev.Kv.CreateRevision,
+					ModRevision:    ev.Kv.ModRevision,
+					Version:        ev.Kv.Version,
+				}
+				notifyWatcher := true
+				if len(wc.storage) == 0 {
+					notifyWatcher = false
+				} else if wc.storage[len(wc.storage)-1].Event == "DELETE" {
+					notifyWatcher = false
+				}
 				eventInfo := Event{
 					Event: "DELETE",
-					Value: wc.storage[len(wc.storage)-1],
+					Value: info,
 				}
-				wc.eventChan <- eventInfo
-				wc.storage = []Info{}
+				if notifyWatcher {
+					wc.eventChan <- eventInfo
+				}
+				wc.storage = append(wc.storage, eventInfo)
 			}
 		}
 	}
@@ -165,6 +238,7 @@ func CreateNode(request *restful.Request, response *restful.Response) {
 func DescribeNodes(request *restful.Request, response *restful.Response) {
 	node := request.PathParameter("node_name")
 	watch := parseBool(request.QueryParameter("watch"))
+	filter := request.QueryParameter("filter")
 
 	key := "nodes/" + node
 
@@ -178,7 +252,7 @@ func DescribeNodes(request *restful.Request, response *restful.Response) {
 	logger.Debug(nil, "DescribeNodes success")
 
 	if watch {
-		watcher := NewWatcher(key, initValue)
+		watcher := NewWatcher(key, initValue, filter)
 		go watcher.watch()
 
 		notify := response.CloseNotify()
@@ -232,7 +306,7 @@ func getInfo(key string) (*Info, error) {
 
 	if len(getResp.Kvs) != 0 {
 		info := Info{
-			Value:          string(getResp.Kvs[0].Value),
+			Value:          getResp.Kvs[0].Value,
 			CreateRevision: getResp.Kvs[0].CreateRevision,
 			ModRevision:    getResp.Kvs[0].ModRevision,
 			Version:        getResp.Kvs[0].Version,
