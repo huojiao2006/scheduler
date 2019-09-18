@@ -39,7 +39,15 @@ func WebService() *restful.WebService {
 		Consumes(restful.MIME_JSON, constants.MIME_MERGEPATCH).
 		Produces(restful.MIME_JSON))
 
-	ws.Route(ws.GET("/nodes/{node_name}").To(DescribeNodes).
+	ws.Route(ws.GET("/nodes/").To(DescribeNodes).
+		Doc("Describe Nodes").
+		Param(ws.QueryParameter("watch", "watch resource, true/false.").DataType("bool").DefaultValue("false").Required(false)).
+		Param(ws.QueryParameter("filter", "filter, eg. group=abc.").DataType("string").DefaultValue("").Required(false)).
+		Metadata(restfulspec.KeyOpenAPITags, tags).
+		Consumes(restful.MIME_JSON, constants.MIME_MERGEPATCH).
+		Produces(restful.MIME_JSON))
+
+	ws.Route(ws.GET("/nodes/{node_name}").To(DescribeNode).
 		Doc("Describe Nodes").
 		Param(ws.QueryParameter("watch", "watch resource, true/false.").DataType("bool").DefaultValue("false").Required(false)).
 		Param(ws.QueryParameter("filter", "filter, eg. group=abc.").DataType("string").DefaultValue("").Required(false)).

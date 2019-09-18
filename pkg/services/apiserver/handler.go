@@ -39,6 +39,7 @@ func Wrap(err error) Error {
 }
 
 type Info struct {
+	Key            string `json:"Key"`
 	Value          []byte `json:"Value"`
 	CreateRevision int64  `json:"CreateRevision"`
 	ModRevision    int64  `json:"ModRevision"`
@@ -47,22 +48,25 @@ type Info struct {
 
 type Event struct {
 	Event string `json:"Event"`
-	Value Info   `json:"Value"`
+	Data  Info   `json:"Data"`
 }
 
 type Watcher struct {
 	key       string
 	filter    string
-	storage   []Event
+	storage   map[string][]Event
 	eventChan chan Event
 	stopChan  chan string
 }
 
-func NewWatcher(key string, initValue *Info, filter string) *Watcher {
-	storage := []Event{}
+func NewWatcher(key string, initValue []Info, filter string) *Watcher {
+	storage := make(map[string][]Event)
 
 	if initValue != nil {
-		storage = append(storage, Event{"ADD", *initValue})
+		for _, info := range initValue {
+			storage[info.Key] = []Event{}
+			storage[info.Key] = append(storage[info.Key], Event{"ADD", info})
+		}
 	}
 
 	return &Watcher{
@@ -135,70 +139,100 @@ func (wc *Watcher) watch() {
 		}
 	}()
 
-	if len(wc.storage) > 0 {
-		if filterEvent(wc.storage[0].Value.Value, wc.filter) {
-			wc.eventChan <- wc.storage[0]
-		} else {
-			wc.storage[0].Event = "DELETE"
+	for _, v := range wc.storage {
+		if len(v) > 0 {
+			if filterEvent(v[0].Data.Value, wc.filter) {
+				wc.eventChan <- v[0]
+			} else {
+				v[0].Event = "DELETE"
+			}
 		}
 	}
 
 	for res := range watchRes {
 		for _, ev := range res.Events {
 			if ev.Type == mvccpb.PUT {
-				logger.Info(nil, "watch got put event [%s] [%s]", string(ev.Kv.Key), string(ev.Kv.Value))
+				key := string(ev.Kv.Key)
+				logger.Info(nil, "watch got put event [%s] [%s]", key, string(ev.Kv.Value))
 				info := Info{
+					Key:            key,
 					Value:          ev.Kv.Value,
 					CreateRevision: ev.Kv.CreateRevision,
 					ModRevision:    ev.Kv.ModRevision,
 					Version:        ev.Kv.Version,
 				}
+
 				notifyWatcher := true
 				event := "MODIFY"
+
+				var eventStore []Event
+				if v, ok := wc.storage[key]; ok {
+					eventStore = v
+				} else {
+					wc.storage[key] = []Event{}
+					eventStore = wc.storage[key]
+				}
+
 				if filterEvent(info.Value, wc.filter) {
-					if len(wc.storage) == 0 {
+					if len(eventStore) == 0 {
 						event = "ADD"
-					} else if wc.storage[len(wc.storage)-1].Event == "DELETE" {
+					} else if eventStore[len(eventStore)-1].Event == "DELETE" {
 						event = "ADD"
 					}
 				} else {
-					if len(wc.storage) == 0 {
+					if len(eventStore) == 0 {
 						notifyWatcher = false
-					} else if wc.storage[len(wc.storage)-1].Event == "DELETE" {
+					} else if eventStore[len(eventStore)-1].Event == "DELETE" {
 						notifyWatcher = false
 					}
 					event = "DELETE"
 				}
-				eventInfo := Event{
+
+				eventNotify := Event{
 					Event: event,
-					Value: info,
+					Data:  info,
 				}
 				if notifyWatcher {
-					wc.eventChan <- eventInfo
+					wc.eventChan <- eventNotify
 				}
-				wc.storage = append(wc.storage, Event{event, info})
+
+				wc.storage[key] = append(wc.storage[key], eventNotify)
 			} else if ev.Type == mvccpb.DELETE {
-				logger.Info(nil, "watch got delete event [%s] [%s]", string(ev.Kv.Key), string(ev.Kv.Value))
+				key := string(ev.Kv.Key)
+				logger.Info(nil, "watch got delete event [%s] [%s]", key, string(ev.Kv.Value))
 				info := Info{
+					Key:            key,
 					Value:          ev.Kv.Value,
 					CreateRevision: ev.Kv.CreateRevision,
 					ModRevision:    ev.Kv.ModRevision,
 					Version:        ev.Kv.Version,
 				}
+
 				notifyWatcher := true
-				if len(wc.storage) == 0 {
+
+				var eventStore []Event
+				if v, ok := wc.storage[key]; ok {
+					eventStore = v
+				} else {
+					wc.storage[key] = []Event{}
+					eventStore = wc.storage[key]
+				}
+
+				if len(eventStore) == 0 {
 					notifyWatcher = false
-				} else if wc.storage[len(wc.storage)-1].Event == "DELETE" {
+				} else if eventStore[len(eventStore)-1].Event == "DELETE" {
 					notifyWatcher = false
 				}
-				eventInfo := Event{
+
+				eventNotify := Event{
 					Event: "DELETE",
-					Value: info,
+					Data:  info,
 				}
 				if notifyWatcher {
-					wc.eventChan <- eventInfo
+					wc.eventChan <- eventNotify
 				}
-				wc.storage = append(wc.storage, eventInfo)
+
+				wc.storage[key] = append(wc.storage[key], eventNotify)
 			}
 		}
 	}
@@ -208,6 +242,43 @@ func (wc *Watcher) watch() {
 
 func (wc *Watcher) stop() {
 	wc.stopChan <- "close"
+}
+
+func listWatch(fnName string, key string, filter string, watch bool, response *restful.Response) {
+	initValue, err := getInfo(key)
+	if err != nil {
+		logger.Debug(nil, "%s request data error %+v.", fnName, err)
+		response.WriteHeaderAndEntity(http.StatusInternalServerError, Wrap(err))
+		return
+	}
+
+	logger.Debug(nil, "%s success", fnName)
+
+	if watch {
+		watcher := NewWatcher(key, initValue, filter)
+		go watcher.watch()
+
+		notify := response.CloseNotify()
+
+		for {
+			select {
+			case event := <-watcher.eventChan:
+				response.Write([]byte(formatEvent(event) + "\n"))
+				response.Flush()
+				logger.Info(nil, "%s got event [%v]", fnName, event)
+			case <-notify:
+				watcher.stop()
+				logger.Info(nil, "%s disconnected", fnName)
+				return
+			}
+		}
+	} else {
+		for _, info := range initValue {
+			if filterEvent(info.Value, filter) {
+				response.Write([]byte(formatInfo(&info) + "\n"))
+			}
+		}
+	}
 }
 
 func CreateNode(request *restful.Request, response *restful.Response) {
@@ -236,42 +307,22 @@ func CreateNode(request *restful.Request, response *restful.Response) {
 }
 
 func DescribeNodes(request *restful.Request, response *restful.Response) {
+	watch := parseBool(request.QueryParameter("watch"))
+	filter := request.QueryParameter("filter")
+
+	key := "nodes/"
+
+	listWatch("DescribeNodes", key, filter, watch, response)
+}
+
+func DescribeNode(request *restful.Request, response *restful.Response) {
 	node := request.PathParameter("node_name")
 	watch := parseBool(request.QueryParameter("watch"))
 	filter := request.QueryParameter("filter")
 
 	key := "nodes/" + node
 
-	initValue, err := getInfo(key)
-	if err != nil {
-		logger.Debug(nil, "CreateNode request data error %+v.", err)
-		response.WriteHeaderAndEntity(http.StatusInternalServerError, Wrap(err))
-		return
-	}
-
-	logger.Debug(nil, "DescribeNodes success")
-
-	if watch {
-		watcher := NewWatcher(key, initValue, filter)
-		go watcher.watch()
-
-		notify := response.CloseNotify()
-
-		for {
-			select {
-			case event := <-watcher.eventChan:
-				response.Write([]byte(formatEvent(event) + "\n"))
-				response.Flush()
-				logger.Info(nil, "DescribeNodes got event [%v]", event)
-			case <-notify:
-				watcher.stop()
-				logger.Info(nil, "DescribeNodes disconnected")
-				return
-			}
-		}
-	} else {
-		response.Write([]byte(formatInfo(initValue) + "\n"))
-	}
+	listWatch("DescribeNodes", key, filter, watch, response)
 }
 
 func formatEvent(event Event) string {
@@ -293,7 +344,7 @@ func formatInfo(info *Info) string {
 	return string(infoBytes)
 }
 
-func getInfo(key string) (*Info, error) {
+func getInfo(key string) ([]Info, error) {
 	ctx := context.Background()
 	e := global.GetInstance().GetEtcd()
 
@@ -305,13 +356,20 @@ func getInfo(key string) (*Info, error) {
 	}
 
 	if len(getResp.Kvs) != 0 {
-		info := Info{
-			Value:          getResp.Kvs[0].Value,
-			CreateRevision: getResp.Kvs[0].CreateRevision,
-			ModRevision:    getResp.Kvs[0].ModRevision,
-			Version:        getResp.Kvs[0].Version,
+		var infos []Info
+		for _, kv := range getResp.Kvs {
+			info := Info{
+				Key:            string(kv.Key),
+				Value:          kv.Value,
+				CreateRevision: kv.CreateRevision,
+				ModRevision:    kv.ModRevision,
+				Version:        kv.Version,
+			}
+
+			infos = append(infos, info)
 		}
-		return &info, nil
+
+		return infos, nil
 	} else {
 		return nil, nil
 	}
