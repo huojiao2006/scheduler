@@ -12,8 +12,8 @@ import (
 
 	"github.com/koding/multiconfig"
 
-	"openpitrix.io/newbilling/pkg/constants"
-	"openpitrix.io/newbilling/pkg/logger"
+	"openpitrix.io/scheduler/pkg/constants"
+	"openpitrix.io/scheduler/pkg/logger"
 )
 
 type Config struct {

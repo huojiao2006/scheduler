@@ -10,7 +10,8 @@ import (
 	"syscall"
 	"time"
 
-	"openpitrix.io/newbilling/pkg/logger"
+	"openpitrix.io/scheduler/pkg/logger"
+	"openpitrix.io/scheduler/pkg/services/nodeagent"
 )
 
 func exitHandler() {
@@ -34,8 +35,16 @@ func ExitFunc() {
 	os.Exit(0)
 }
 
+func mainFuncNodeAgent() {
+	na := nodeagent.Init()
+
+	na.Run()
+}
+
 func main() {
 	exitHandler()
+
+	mainFuncNodeAgent()
 
 	for {
 		logger.Debug(nil, "running...")

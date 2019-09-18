@@ -10,7 +10,7 @@ import (
 	"log"
 	"testing"
 
-	pkg "openpitrix.io/newbilling/pkg"
+	pkg "openpitrix.io/scheduler/pkg"
 )
 
 func TestConnect(t *testing.T) {

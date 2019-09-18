@@ -14,8 +14,10 @@ import (
 
 	"net/http"
 
-	"openpitrix.io/newbilling/pkg/global"
-	"openpitrix.io/newbilling/pkg/logger"
+	"openpitrix.io/scheduler/pkg/constants"
+	"openpitrix.io/scheduler/pkg/global"
+	"openpitrix.io/scheduler/pkg/logger"
+	"openpitrix.io/scheduler/pkg/models"
 )
 
 func parseBool(input string) bool {
@@ -24,10 +26,6 @@ func parseBool(input string) bool {
 	} else {
 		return false
 	}
-}
-
-type NodeInfo struct {
-	Info string `json:"info"`
 }
 
 type Error struct {
@@ -80,6 +78,10 @@ func NewWatcher(key string, initValue []Info, filter string) *Watcher {
 
 func filterEvent(value []byte, filter string) bool {
 	logger.Info(nil, "filterEvent [%v] [%s]", value, filter)
+
+	if len(value) == 0 {
+		return true
+	}
 
 	var map_value map[string]interface{}
 
@@ -283,18 +285,28 @@ func listWatch(fnName string, key string, filter string, watch bool, response *r
 
 func CreateNode(request *restful.Request, response *restful.Response) {
 	node := request.PathParameter("node_name")
-	nodeInfo := new(NodeInfo)
+	nodeInfo := new(models.NodeInfo)
 
 	err := request.ReadEntity(&nodeInfo)
 	if err != nil {
-		logger.Debug(nil, "CreateNode request data error %+v.", err)
+		logger.Error(nil, "CreateNode request data error %+v.", err)
 		response.WriteHeaderAndEntity(http.StatusInternalServerError, Wrap(err))
 		return
 	}
 
+	ttlValue := nodeInfo.TTL
+
+	if ttlValue > constants.TTLMax {
+		ttlValue = constants.TTLMax
+	}
+
+	if ttlValue < constants.TTLMin {
+		ttlValue = constants.TTLMin
+	}
+
 	key := "nodes/" + node
 
-	err = putInfo(key, nodeInfo.Info, 10)
+	err = putInfo(key, nodeInfo.Info, ttlValue)
 	if err != nil {
 		logger.Debug(nil, "CreateNode putInfo error %+v.", err)
 		response.WriteHeaderAndEntity(http.StatusInternalServerError, Wrap(err))

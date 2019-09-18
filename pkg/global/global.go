@@ -10,10 +10,10 @@ import (
 
 	"github.com/google/gops/agent"
 
-	"openpitrix.io/newbilling/pkg/config"
-	"openpitrix.io/newbilling/pkg/constants"
-	"openpitrix.io/newbilling/pkg/etcd"
-	"openpitrix.io/newbilling/pkg/logger"
+	"openpitrix.io/scheduler/pkg/config"
+	"openpitrix.io/scheduler/pkg/constants"
+	"openpitrix.io/scheduler/pkg/etcd"
+	"openpitrix.io/scheduler/pkg/logger"
 )
 
 type GlobalCfg struct {

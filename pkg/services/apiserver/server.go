@@ -18,10 +18,10 @@ import (
 	"github.com/emicklei/go-restful"
 	"github.com/emicklei/go-restful-openapi"
 
-	"openpitrix.io/newbilling/pkg/config"
-	"openpitrix.io/newbilling/pkg/constants"
-	"openpitrix.io/newbilling/pkg/global"
-	"openpitrix.io/newbilling/pkg/logger"
+	"openpitrix.io/scheduler/pkg/config"
+	"openpitrix.io/scheduler/pkg/constants"
+	"openpitrix.io/scheduler/pkg/global"
+	"openpitrix.io/scheduler/pkg/logger"
 )
 
 func WebService() *restful.WebService {

@@ -9,8 +9,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"openpitrix.io/newbilling/pkg/config"
-	"openpitrix.io/newbilling/pkg/services/apiserver"
+	"openpitrix.io/scheduler/pkg/config"
+	"openpitrix.io/scheduler/pkg/services/apiserver"
 )
 
 func exitHandler() {

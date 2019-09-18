@@ -8,7 +8,7 @@ import (
 	"context"
 	"time"
 
-	"openpitrix.io/newbilling/pkg/logger"
+	"openpitrix.io/scheduler/pkg/logger"
 )
 
 type callback func() error

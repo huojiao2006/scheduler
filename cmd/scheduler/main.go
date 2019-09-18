@@ -10,7 +10,7 @@ import (
 	"syscall"
 	"time"
 
-	"openpitrix.io/newbilling/pkg/logger"
+	"openpitrix.io/scheduler/pkg/logger"
 )
 
 func exitHandler() {

@@ -1,4 +1,4 @@
-module openpitrix.io/newbilling
+module openpitrix.io/scheduler
 
 require (
 	github.com/coreos/etcd v3.3.13+incompatible
