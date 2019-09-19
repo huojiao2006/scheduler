@@ -3,3 +3,27 @@
 // that can be found in the LICENSE file.
 
 package scheduler
+
+import (
+)
+
+type Scheduler struct {
+	nodeWatcher *NodeWatcher
+}
+
+func NewScheduler() *Scheduler {
+	sc := &Scheduler{
+		nodeWatcher: NewNodeWatcher(),
+	}
+	return sc
+}
+
+func Init() *Scheduler {
+	scheduler := NewScheduler()
+
+	return scheduler
+}
+
+func (sc *Scheduler) Run() {
+	sc.nodeWatcher.Run()
+}

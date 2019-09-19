@@ -5,12 +5,10 @@ import (
 	"encoding/json"
 	"net"
 	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	"openpitrix.io/scheduler/pkg/logger"
+	"openpitrix.io/scheduler/pkg/models"
 )
 
 type ResourceEventHandler interface {
@@ -54,18 +52,6 @@ type Informer struct {
 	handler ResourceEventHandler
 }
 
-type Info struct {
-	Value          []byte `json:"Value"`
-	CreateRevision int64  `json:"CreateRevision"`
-	ModRevision    int64  `json:"ModRevision"`
-	Version        int64  `json:"Version"`
-}
-
-type Event struct {
-	Event string `json:"Event"`
-	Value Info   `json:"Value"`
-}
-
 func (i *Informer) watch() {
 	client := &http.Client{
 		Transport: &http.Transport{
@@ -84,7 +70,7 @@ func (i *Informer) watch() {
 
 	request, err := http.NewRequest("GET", i.url, nil)
 	if err != nil {
-		logger.Error(nil, "SendMetricRequest NewRequest error:", err)
+		logger.Error(nil, "Informer watch NewRequest error:", err)
 		return
 	}
 
@@ -106,8 +92,7 @@ func (i *Informer) watch() {
 			if err != nil {
 				logger.Error(nil, "watch read error:", err.Error())
 			} else {
-				//logger.Info(nil, "%s", string(line))
-				var event Event
+				var event models.Event
 				err := json.Unmarshal(line, &event)
 				if err != nil {
 					logger.Error(nil, "watch unmarshal error [%v]", err)
@@ -115,11 +100,11 @@ func (i *Informer) watch() {
 				}
 				switch event.Event {
 				case "ADD":
-					i.handler.OnAdd(event.Value)
+					i.handler.OnAdd(event.Data)
 				case "MODIFY":
-					i.handler.OnUpdate(event.Value, event.Value)
+					i.handler.OnUpdate(event.Data, event.Data)
 				case "DELETE":
-					i.handler.OnDelete(event.Value)
+					i.handler.OnDelete(event.Data)
 				}
 			}
 		}

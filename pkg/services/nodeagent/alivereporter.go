@@ -43,6 +43,8 @@ func (ar *AliveReporter) doHeartBeat() {
 }
 
 func (ar *AliveReporter) HeartBeat() {
+	ar.doHeartBeat()
+
 	timer := time.NewTicker(time.Second * 20)
 	defer timer.Stop()
 

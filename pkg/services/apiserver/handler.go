@@ -36,34 +36,21 @@ func Wrap(err error) Error {
 	return Error{Message: err.Error()}
 }
 
-type Info struct {
-	Key            string `json:"Key"`
-	Value          []byte `json:"Value"`
-	CreateRevision int64  `json:"CreateRevision"`
-	ModRevision    int64  `json:"ModRevision"`
-	Version        int64  `json:"Version"`
-}
-
-type Event struct {
-	Event string `json:"Event"`
-	Data  Info   `json:"Data"`
-}
-
 type Watcher struct {
 	key       string
 	filter    string
-	storage   map[string][]Event
-	eventChan chan Event
+	storage   map[string][]models.Event
+	eventChan chan models.Event
 	stopChan  chan string
 }
 
-func NewWatcher(key string, initValue []Info, filter string) *Watcher {
-	storage := make(map[string][]Event)
+func NewWatcher(key string, initValue []models.Info, filter string) *Watcher {
+	storage := make(map[string][]models.Event)
 
 	if initValue != nil {
 		for _, info := range initValue {
-			storage[info.Key] = []Event{}
-			storage[info.Key] = append(storage[info.Key], Event{"ADD", info})
+			storage[info.Key] = []models.Event{}
+			storage[info.Key] = append(storage[info.Key], models.Event{"ADD", info})
 		}
 	}
 
@@ -71,7 +58,7 @@ func NewWatcher(key string, initValue []Info, filter string) *Watcher {
 		key:       key,
 		filter:    filter,
 		storage:   storage,
-		eventChan: make(chan Event, 10),
+		eventChan: make(chan models.Event, 10),
 		stopChan:  make(chan string, 1),
 	}
 }
@@ -101,7 +88,7 @@ func evaluateRule(rule string, map_value map[string]interface{}) bool {
 }
 
 func filterEvent(value []byte, filter string) bool {
-	logger.Info(nil, "filterEvent [%v] [%s]", value, filter)
+	logger.Info(nil, "filterEvent [%s] [%s]", value, filter)
 
 	if len(value) == 0 {
 		return true
@@ -171,7 +158,7 @@ func (wc *Watcher) watch() {
 			if ev.Type == mvccpb.PUT {
 				key := string(ev.Kv.Key)
 				logger.Info(nil, "watch got put event [%s] [%s]", key, string(ev.Kv.Value))
-				info := Info{
+				info := models.Info{
 					Key:            key,
 					Value:          ev.Kv.Value,
 					CreateRevision: ev.Kv.CreateRevision,
@@ -182,11 +169,11 @@ func (wc *Watcher) watch() {
 				notifyWatcher := true
 				event := "MODIFY"
 
-				var eventStore []Event
+				var eventStore []models.Event
 				if v, ok := wc.storage[key]; ok {
 					eventStore = v
 				} else {
-					wc.storage[key] = []Event{}
+					wc.storage[key] = []models.Event{}
 					eventStore = wc.storage[key]
 				}
 
@@ -205,7 +192,7 @@ func (wc *Watcher) watch() {
 					event = "DELETE"
 				}
 
-				eventNotify := Event{
+				eventNotify := models.Event{
 					Event: event,
 					Data:  info,
 				}
@@ -217,7 +204,7 @@ func (wc *Watcher) watch() {
 			} else if ev.Type == mvccpb.DELETE {
 				key := string(ev.Kv.Key)
 				logger.Info(nil, "watch got delete event [%s] [%s]", key, string(ev.Kv.Value))
-				info := Info{
+				info := models.Info{
 					Key:            key,
 					Value:          ev.Kv.Value,
 					CreateRevision: ev.Kv.CreateRevision,
@@ -227,11 +214,11 @@ func (wc *Watcher) watch() {
 
 				notifyWatcher := true
 
-				var eventStore []Event
+				var eventStore []models.Event
 				if v, ok := wc.storage[key]; ok {
 					eventStore = v
 				} else {
-					wc.storage[key] = []Event{}
+					wc.storage[key] = []models.Event{}
 					eventStore = wc.storage[key]
 				}
 
@@ -241,7 +228,7 @@ func (wc *Watcher) watch() {
 					notifyWatcher = false
 				}
 
-				eventNotify := Event{
+				eventNotify := models.Event{
 					Event: "DELETE",
 					Data:  info,
 				}
@@ -268,8 +255,6 @@ func listWatch(fnName string, key string, filter string, watch bool, response *r
 		response.WriteHeaderAndEntity(http.StatusInternalServerError, Wrap(err))
 		return
 	}
-
-	logger.Debug(nil, "%s success", fnName)
 
 	if watch {
 		watcher := NewWatcher(key, initValue, filter)
@@ -352,7 +337,7 @@ func DescribeNode(request *restful.Request, response *restful.Response) {
 	listWatch("DescribeNodes", key, filter, watch, response)
 }
 
-func formatEvent(event Event) string {
+func formatEvent(event models.Event) string {
 	eventBytes, err := json.Marshal(event)
 	if err != nil {
 		logger.Error(nil, "formatEvent error [%v]", err)
@@ -361,7 +346,7 @@ func formatEvent(event Event) string {
 	return string(eventBytes)
 }
 
-func formatInfo(info *Info) string {
+func formatInfo(info *models.Info) string {
 	if nil == info {
 		return "{}"
 	}
@@ -371,7 +356,7 @@ func formatInfo(info *Info) string {
 	return string(infoBytes)
 }
 
-func getInfo(key string) ([]Info, error) {
+func getInfo(key string) ([]models.Info, error) {
 	ctx := context.Background()
 	e := global.GetInstance().GetEtcd()
 
@@ -383,9 +368,9 @@ func getInfo(key string) ([]Info, error) {
 	}
 
 	if len(getResp.Kvs) != 0 {
-		var infos []Info
+		var infos []models.Info
 		for _, kv := range getResp.Kvs {
-			info := Info{
+			info := models.Info{
 				Key:            string(kv.Key),
 				Value:          kv.Value,
 				CreateRevision: kv.CreateRevision,
