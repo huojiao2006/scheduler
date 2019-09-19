@@ -76,26 +76,8 @@ func NewWatcher(key string, initValue []Info, filter string) *Watcher {
 	}
 }
 
-func filterEvent(value []byte, filter string) bool {
-	logger.Info(nil, "filterEvent [%v] [%s]", value, filter)
-
-	if len(value) == 0 {
-		return true
-	}
-
-	var map_value map[string]interface{}
-
-	err := json.Unmarshal(value, &map_value)
-	if err != nil {
-		logger.Error(nil, "filterEvent error [%v]", err)
-		return false
-	}
-
-	if filter == "" {
-		return true
-	}
-
-	expr := strings.Split(filter, "=")
+func evaluateRule(rule string, map_value map[string]interface{}) bool {
+	expr := strings.Split(rule, "=")
 	left := ""
 	right := ""
 	if len(expr) == 2 {
@@ -116,6 +98,39 @@ func filterEvent(value []byte, filter string) bool {
 	} else {
 		return false
 	}
+}
+
+func filterEvent(value []byte, filter string) bool {
+	logger.Info(nil, "filterEvent [%v] [%s]", value, filter)
+
+	if len(value) == 0 {
+		return true
+	}
+
+	var map_value map[string]interface{}
+
+	err := json.Unmarshal(value, &map_value)
+	if err != nil {
+		logger.Error(nil, "filterEvent error [%v]", err)
+		return false
+	}
+
+	if filter == "" {
+		return true
+	}
+
+	result := true
+
+	rules := strings.Split(filter, ",")
+
+	for _, rule := range rules {
+		if !evaluateRule(rule, map_value) {
+			result = false
+			break
+		}
+	}
+
+	return result
 }
 
 func (wc *Watcher) watch() {
