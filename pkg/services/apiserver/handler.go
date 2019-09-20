@@ -283,60 +283,6 @@ func listWatch(fnName string, key string, filter string, watch bool, response *r
 	}
 }
 
-func CreateNode(request *restful.Request, response *restful.Response) {
-	node := request.PathParameter("node_name")
-	nodeInfo := new(models.NodeInfo)
-
-	err := request.ReadEntity(&nodeInfo)
-	if err != nil {
-		logger.Error(nil, "CreateNode request data error %+v.", err)
-		response.WriteHeaderAndEntity(http.StatusInternalServerError, Wrap(err))
-		return
-	}
-
-	ttlValue := nodeInfo.TTL
-
-	if ttlValue > constants.TTLMax {
-		ttlValue = constants.TTLMax
-	}
-
-	if ttlValue < constants.TTLMin {
-		ttlValue = constants.TTLMin
-	}
-
-	key := "nodes/" + node
-
-	err = putInfo(key, nodeInfo.Info, ttlValue)
-	if err != nil {
-		logger.Debug(nil, "CreateNode putInfo error %+v.", err)
-		response.WriteHeaderAndEntity(http.StatusInternalServerError, Wrap(err))
-		return
-	}
-
-	logger.Debug(nil, "CreateNode success")
-
-	response.WriteHeaderAndEntity(http.StatusOK, "node")
-}
-
-func DescribeNodes(request *restful.Request, response *restful.Response) {
-	watch := parseBool(request.QueryParameter("watch"))
-	filter := request.QueryParameter("filter")
-
-	key := "nodes/"
-
-	listWatch("DescribeNodes", key, filter, watch, response)
-}
-
-func DescribeNode(request *restful.Request, response *restful.Response) {
-	node := request.PathParameter("node_name")
-	watch := parseBool(request.QueryParameter("watch"))
-	filter := request.QueryParameter("filter")
-
-	key := "nodes/" + node
-
-	listWatch("DescribeNodes", key, filter, watch, response)
-}
-
 func formatEvent(event models.Event) string {
 	eventBytes, err := json.Marshal(event)
 	if err != nil {
@@ -391,18 +337,115 @@ func putInfo(key string, info string, expireTime int64) error {
 	ctx := context.Background()
 	e := global.GetInstance().GetEtcd()
 
-	resp, err := e.Grant(ctx, expireTime)
-	if err != nil {
-		logger.Error(ctx, "Grant TTL from etcd failed: %+v", err)
+	if expireTime <= 0 {
+		_, err := e.Put(ctx, key, info)
+
+		if err != nil {
+			logger.Error(ctx, "putInfo [%s] [%s] to etcd failed: %+v", key, info, err)
+			return err
+		}
+		return err
+	} else {
+		resp, err := e.Grant(ctx, expireTime)
+		if err != nil {
+			logger.Error(ctx, "Grant TTL from etcd failed: %+v", err)
+			return err
+		}
+
+		_, err = e.Put(ctx, key, info, clientv3.WithLease(resp.ID))
+
+		if err != nil {
+			logger.Error(ctx, "putInfo [%s] [%s] to etcd failed: %+v", key, info, err)
+			return err
+		}
 		return err
 	}
+}
 
-	_, err = e.Put(ctx, key, info, clientv3.WithLease(resp.ID))
+func CreateNode(request *restful.Request, response *restful.Response) {
+	node := request.PathParameter("node_name")
+	nodeInfo := new(models.APIInfo)
 
+	err := request.ReadEntity(&nodeInfo)
 	if err != nil {
-		logger.Error(ctx, "putInfo [%s] [%s] to etcd failed: %+v", key, info, err)
-		return err
+		logger.Error(nil, "CreateNode request data error %+v.", err)
+		response.WriteHeaderAndEntity(http.StatusInternalServerError, Wrap(err))
+		return
 	}
 
-	return err
+	ttlValue := nodeInfo.TTL
+
+	if ttlValue > constants.TTLMax {
+		ttlValue = constants.TTLMax
+	}
+
+	if ttlValue < constants.TTLMin {
+		ttlValue = constants.TTLMin
+	}
+
+	key := "nodes/" + node
+
+	err = putInfo(key, nodeInfo.Info, ttlValue)
+	if err != nil {
+		logger.Debug(nil, "CreateNode putInfo error %+v.", err)
+		response.WriteHeaderAndEntity(http.StatusInternalServerError, Wrap(err))
+		return
+	}
+
+	logger.Debug(nil, "CreateNode success")
+
+	response.WriteHeaderAndEntity(http.StatusOK, "node")
+}
+
+func DescribeNodes(request *restful.Request, response *restful.Response) {
+	watch := parseBool(request.QueryParameter("watch"))
+	filter := request.QueryParameter("filter")
+
+	key := "nodes/"
+
+	listWatch("DescribeNodes", key, filter, watch, response)
+}
+
+func DescribeNode(request *restful.Request, response *restful.Response) {
+	node := request.PathParameter("node_name")
+	watch := parseBool(request.QueryParameter("watch"))
+	filter := request.QueryParameter("filter")
+
+	key := "nodes/" + node
+
+	listWatch("DescribeNodes", key, filter, watch, response)
+}
+
+func CreateTask(request *restful.Request, response *restful.Response) {
+	task := request.PathParameter("task_name")
+	taskInfo := new(models.APIInfo)
+
+	err := request.ReadEntity(&taskInfo)
+	if err != nil {
+		logger.Error(nil, "CreateTask request data error %+v.", err)
+		response.WriteHeaderAndEntity(http.StatusInternalServerError, Wrap(err))
+		return
+	}
+
+	key := "tasks/" + task
+
+	err = putInfo(key, taskInfo.Info, -1)
+	if err != nil {
+		logger.Debug(nil, "CreateTask putInfo error %+v.", err)
+		response.WriteHeaderAndEntity(http.StatusInternalServerError, Wrap(err))
+		return
+	}
+
+	logger.Debug(nil, "CreateTask success")
+
+	response.WriteHeaderAndEntity(http.StatusOK, "task")
+}
+
+func DescribeTasks(request *restful.Request, response *restful.Response) {
+	watch := parseBool(request.QueryParameter("watch"))
+	filter := request.QueryParameter("filter")
+
+	key := "tasks/"
+
+	listWatch("DescribeTasks", key, filter, watch, response)
 }

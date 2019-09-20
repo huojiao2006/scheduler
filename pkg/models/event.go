@@ -14,3 +14,8 @@ type Event struct {
 	Event string `json:"Event"`
 	Data  Info   `json:"Data"`
 }
+
+type APIInfo struct {
+	Info string `json:"Info"`
+	TTL  int64  `json:"TTL"`
+}

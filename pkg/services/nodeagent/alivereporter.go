@@ -28,7 +28,7 @@ func (ar *AliveReporter) SetNodeAgent(nodeAgent *NodeAgent) {
 }
 
 func (ar *AliveReporter) doHeartBeat() {
-	nodeInfo := models.NodeInfo{
+	nodeInfo := models.APIInfo{
 		Info: "",
 		TTL:  60,
 	}

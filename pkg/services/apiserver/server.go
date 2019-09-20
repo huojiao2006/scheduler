@@ -55,6 +55,31 @@ func WebService() *restful.WebService {
 		Consumes(restful.MIME_JSON, constants.MIME_MERGEPATCH).
 		Produces(restful.MIME_JSON))
 
+	tags = []string{"Task"}
+
+	ws.Route(ws.POST("/tasks/{task_name}").To(CreateTask).
+		Doc("Create Task").
+		Param(ws.PathParameter("task_name", "Specify task").DataType("string").Required(true).DefaultValue("")).
+		Metadata(restfulspec.KeyOpenAPITags, tags).
+		Consumes(restful.MIME_JSON, constants.MIME_MERGEPATCH).
+		Produces(restful.MIME_JSON))
+
+	ws.Route(ws.GET("/tasks/").To(DescribeTasks).
+		Doc("Describe Tasks").
+		Param(ws.QueryParameter("watch", "watch resource, true/false.").DataType("bool").DefaultValue("false").Required(false)).
+		Param(ws.QueryParameter("filter", "filter, eg. group=abc.").DataType("string").DefaultValue("").Required(false)).
+		Metadata(restfulspec.KeyOpenAPITags, tags).
+		Consumes(restful.MIME_JSON, constants.MIME_MERGEPATCH).
+		Produces(restful.MIME_JSON))
+
+	/*ws.Route(ws.GET("/tasks/{task_name}").To(DescribeTask).
+	Doc("Describe Tasks").
+	Param(ws.QueryParameter("watch", "watch resource, true/false.").DataType("bool").DefaultValue("false").Required(false)).
+	Param(ws.QueryParameter("filter", "filter, eg. group=abc.").DataType("string").DefaultValue("").Required(false)).
+	Metadata(restfulspec.KeyOpenAPITags, tags).
+	Consumes(restful.MIME_JSON, constants.MIME_MERGEPATCH).
+	Produces(restful.MIME_JSON))*/
+
 	return ws
 }
 

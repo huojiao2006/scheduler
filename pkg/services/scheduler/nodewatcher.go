@@ -5,20 +5,40 @@
 package scheduler
 
 import (
+	"sync"
+
 	"openpitrix.io/scheduler/pkg/client/informer"
 	"openpitrix.io/scheduler/pkg/logger"
+	"openpitrix.io/scheduler/pkg/models"
 )
 
+type NodeMap struct {
+	sync.RWMutex
+	Map map[string]string
+}
+
 type NodeWatcher struct {
-	nodeMap map[string]string
+	nodeMap *NodeMap
 }
 
 func NewNodeWatcher() *NodeWatcher {
 	nw := &NodeWatcher{
-		nodeMap: make(map[string]string),
+		nodeMap: &NodeMap{Map: make(map[string]string)},
 	}
 
 	return nw
+}
+
+func (nw *NodeWatcher) addNode(node string) {
+	nw.nodeMap.Lock()
+	nw.nodeMap.Map[node] = "Alive"
+	nw.nodeMap.Unlock()
+}
+
+func (nw *NodeWatcher) deleteNode(node string) {
+	nw.nodeMap.Lock()
+	delete(nw.nodeMap.Map, node)
+	nw.nodeMap.Unlock()
 }
 
 func (nw *NodeWatcher) watchNodes() {
@@ -27,9 +47,23 @@ func (nw *NodeWatcher) watchNodes() {
 	nodeInformer.AddEventHandler(informer.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			logger.Info(nil, "watchNodes added node: %v", obj)
+
+			info, ok := (obj).(models.Info)
+			if ok {
+				nw.addNode(info.Key)
+			} else {
+				logger.Info(nil, "watchNodes data error")
+			}
 		},
 		DeleteFunc: func(obj interface{}) {
 			logger.Info(nil, "watchNodes deleted node: %v", obj)
+
+			info, ok := (obj).(models.Info)
+			if ok {
+				nw.deleteNode(info.Key)
+			} else {
+				logger.Info(nil, "watchNodes data error")
+			}
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			logger.Info(nil, "watchNodes updated node: %v", newObj)
