@@ -73,6 +73,10 @@ func (nw *NodeWatcher) watchNodes() {
 	nodeInformer.Start()
 }
 
+func (nw *NodeWatcher) SelectNode() string {
+	return ""
+}
+
 func (nw *NodeWatcher) Run() {
 	nw.watchNodes()
 }

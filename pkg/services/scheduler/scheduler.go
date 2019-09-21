@@ -5,15 +5,18 @@
 package scheduler
 
 import (
+	"openpitrix.io/scheduler/pkg/logger"
 )
 
 type Scheduler struct {
 	nodeWatcher *NodeWatcher
+	taskWatcher *TaskWatcher
 }
 
 func NewScheduler() *Scheduler {
 	sc := &Scheduler{
 		nodeWatcher: NewNodeWatcher(),
+		taskWatcher: NewTaskWatcher(),
 	}
 	return sc
 }
@@ -24,6 +27,19 @@ func Init() *Scheduler {
 	return scheduler
 }
 
+func (sc *Scheduler) scheduleLoop() {
+	for {
+		select {
+		case taskInfo := <-sc.taskWatcher.taskChan:
+			logger.Debug(nil, "scheduleTask %v", taskInfo)
+
+			//Choose node randomly and assign task
+		}
+	}
+}
+
 func (sc *Scheduler) Run() {
-	sc.nodeWatcher.Run()
+	go sc.nodeWatcher.Run()
+	go sc.taskWatcher.Run()
+	sc.scheduleLoop()
 }
