@@ -5,6 +5,7 @@
 package scheduler
 
 import (
+	"math/rand"
 	"sync"
 
 	"openpitrix.io/scheduler/pkg/client/informer"
@@ -12,33 +13,44 @@ import (
 	"openpitrix.io/scheduler/pkg/models"
 )
 
-type NodeMap struct {
+type NodeStorage struct {
 	sync.RWMutex
-	Map map[string]string
+	Map  map[string]int
+	List []string
 }
 
 type NodeWatcher struct {
-	nodeMap *NodeMap
+	nodeStorage *NodeStorage
 }
 
 func NewNodeWatcher() *NodeWatcher {
 	nw := &NodeWatcher{
-		nodeMap: &NodeMap{Map: make(map[string]string)},
+		nodeStorage: &NodeStorage{Map: make(map[string]int), List: []string{}},
 	}
 
 	return nw
 }
 
 func (nw *NodeWatcher) addNode(node string) {
-	nw.nodeMap.Lock()
-	nw.nodeMap.Map[node] = "Alive"
-	nw.nodeMap.Unlock()
+	nw.nodeStorage.Lock()
+	if _, ok := nw.nodeStorage.Map[node]; ok {
+		logger.Error(nil, "addNode error: node already registered")
+	} else {
+		nw.nodeStorage.List = append(nw.nodeStorage.List, node)
+		nw.nodeStorage.Map[node] = len(nw.nodeStorage.List) - 1
+	}
+	nw.nodeStorage.Unlock()
 }
 
 func (nw *NodeWatcher) deleteNode(node string) {
-	nw.nodeMap.Lock()
-	delete(nw.nodeMap.Map, node)
-	nw.nodeMap.Unlock()
+	nw.nodeStorage.Lock()
+	if index, ok := nw.nodeStorage.Map[node]; ok {
+		nw.nodeStorage.List = append(nw.nodeStorage.List[:index], nw.nodeStorage.List[index+1:]...)
+		delete(nw.nodeStorage.Map, node)
+	} else {
+		logger.Error(nil, "deleteNode error: node not registered")
+	}
+	nw.nodeStorage.Unlock()
 }
 
 func (nw *NodeWatcher) watchNodes() {
@@ -74,7 +86,15 @@ func (nw *NodeWatcher) watchNodes() {
 }
 
 func (nw *NodeWatcher) SelectNode() string {
-	return ""
+	nw.nodeStorage.Lock()
+	defer nw.nodeStorage.Unlock()
+
+	if len(nw.nodeStorage.List) == 0 {
+		logger.Info(nil, "SelectNode has no node to schedule")
+		return ""
+	}
+
+	return nw.nodeStorage.List[rand.Intn(len(nw.nodeStorage.List))]
 }
 
 func (nw *NodeWatcher) Run() {
