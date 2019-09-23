@@ -91,6 +91,7 @@ func (i *Informer) watch() {
 			line, err := reader.ReadBytes('\n')
 			if err != nil {
 				logger.Error(nil, "watch read error:", err.Error())
+				break
 			} else {
 				var event models.Event
 				err := json.Unmarshal(line, &event)

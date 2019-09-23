@@ -6,6 +6,7 @@ package scheduler
 
 import (
 	"math/rand"
+	"strings"
 	"sync"
 
 	"openpitrix.io/scheduler/pkg/client/informer"
@@ -32,6 +33,7 @@ func NewNodeWatcher() *NodeWatcher {
 }
 
 func (nw *NodeWatcher) addNode(node string) {
+	node = strings.TrimPrefix(node, "nodes/")
 	nw.nodeStorage.Lock()
 	if _, ok := nw.nodeStorage.Map[node]; ok {
 		logger.Error(nil, "addNode error: node already registered")
@@ -43,6 +45,7 @@ func (nw *NodeWatcher) addNode(node string) {
 }
 
 func (nw *NodeWatcher) deleteNode(node string) {
+	node = strings.TrimPrefix(node, "nodes/")
 	nw.nodeStorage.Lock()
 	if index, ok := nw.nodeStorage.Map[node]; ok {
 		nw.nodeStorage.List = append(nw.nodeStorage.List[:index], nw.nodeStorage.List[index+1:]...)
