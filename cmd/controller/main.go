@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"openpitrix.io/scheduler/pkg/logger"
+	"openpitrix.io/scheduler/pkg/services/controller"
 )
 
 func exitHandler() {
@@ -34,8 +35,16 @@ func ExitFunc() {
 	os.Exit(0)
 }
 
+func mainFuncController() {
+	ct := controller.Init()
+
+	ct.Run()
+}
+
 func main() {
 	exitHandler()
+
+	mainFuncController()
 
 	for {
 		logger.Debug(nil, "running...")

@@ -449,3 +449,37 @@ func DescribeTasks(request *restful.Request, response *restful.Response) {
 
 	listWatch("DescribeTasks", key, filter, watch, response)
 }
+
+func CreateJob(request *restful.Request, response *restful.Response) {
+	job := request.PathParameter("job_name")
+	jobInfo := new(models.APIInfo)
+
+	err := request.ReadEntity(&jobInfo)
+	if err != nil {
+		logger.Error(nil, "CreateJob request data error %+v.", err)
+		response.WriteHeaderAndEntity(http.StatusInternalServerError, Wrap(err))
+		return
+	}
+
+	key := "jobs/" + job
+
+	err = putInfo(key, jobInfo.Info, -1)
+	if err != nil {
+		logger.Debug(nil, "CreateJob putInfo error %+v.", err)
+		response.WriteHeaderAndEntity(http.StatusInternalServerError, Wrap(err))
+		return
+	}
+
+	logger.Debug(nil, "CreateJob success")
+
+	response.WriteHeaderAndEntity(http.StatusOK, "job")
+}
+
+func DescribeJobs(request *restful.Request, response *restful.Response) {
+	watch := parseBool(request.QueryParameter("watch"))
+	filter := request.QueryParameter("filter")
+
+	key := "jobs/"
+
+	listWatch("DescribeJobs", key, filter, watch, response)
+}
