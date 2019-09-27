@@ -21,4 +21,8 @@ const (
 	TTLMax = 600
 )
 
+const (
+	TaskIdPrefix = "t-"
+)
+
 const MIME_MERGEPATCH = "application/merge-patch+json"

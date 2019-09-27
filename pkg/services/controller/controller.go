@@ -8,8 +8,10 @@ import (
 	"encoding/json"
 
 	"openpitrix.io/scheduler/pkg/client/writer"
+	"openpitrix.io/scheduler/pkg/constants"
 	"openpitrix.io/scheduler/pkg/logger"
 	"openpitrix.io/scheduler/pkg/models"
+	"openpitrix.io/scheduler/pkg/util/idutil"
 )
 
 type Controller struct {
@@ -27,6 +29,10 @@ func Init() *Controller {
 	controller := NewController()
 
 	return controller
+}
+
+func NewTaskId() string {
+	return idutil.GetUuid(constants.TaskIdPrefix)
 }
 
 func (sc *Controller) updateJob(jobInfo models.JobInfo) {
@@ -50,7 +56,12 @@ func (sc *Controller) updateJob(jobInfo models.JobInfo) {
 	writer.WriteAPIServer("http://127.0.0.1:8080/api/v1alpha1", "jobs", jobInfo.Name, string(value))
 }
 
+func (ct *Controller) jobRun(jobInfo models.JobInfo) {
+
+}
+
 func (ct *Controller) scheduleJob(jobInfo models.JobInfo) {
+	go ct.jobRun(jobInfo)
 }
 
 func (ct *Controller) scheduleLoop() {
