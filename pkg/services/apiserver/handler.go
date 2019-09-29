@@ -124,6 +124,7 @@ func (wc *Watcher) watch() {
 	e := global.GetInstance().GetEtcd()
 
 	defer close(wc.eventChan)
+	defer close(wc.stopChan)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancelRoutine := make(chan struct{})

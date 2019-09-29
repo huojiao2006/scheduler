@@ -2,6 +2,7 @@ package informer
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"net"
 	"net/http"
@@ -48,8 +49,9 @@ func (r ResourceEventHandlerFuncs) OnDelete(obj interface{}) {
 }
 
 type Informer struct {
-	url     string
-	handler ResourceEventHandler
+	url      string
+	handler  ResourceEventHandler
+	stopChan chan string
 }
 
 var client = &http.Client{
@@ -68,11 +70,31 @@ var client = &http.Client{
 }
 
 func (i *Informer) watch() {
+	defer close(i.stopChan)
+
 	request, err := http.NewRequest("GET", i.url, nil)
 	if err != nil {
 		logger.Error(nil, "Informer watch NewRequest error:", err)
 		return
 	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancelRoutine := make(chan struct{})
+	defer close(cancelRoutine)
+
+	request = request.WithContext(ctx)
+
+	go func() {
+		for {
+			select {
+			case <-i.stopChan:
+				cancel()
+				return
+			case <-cancelRoutine:
+				return
+			}
+		}
+	}()
 
 	params := request.URL.Query()
 	params.Add("watch", "true")
@@ -124,8 +146,13 @@ func (i *Informer) Start() {
 	go i.watch()
 }
 
+func (i *Informer) Stop() {
+	i.stopChan <- "close"
+}
+
 func NewInformer(url string) *Informer {
 	return &Informer{
-		url: url,
+		url:      url,
+		stopChan: make(chan string, 1),
 	}
 }

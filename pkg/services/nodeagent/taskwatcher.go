@@ -41,9 +41,9 @@ func (tw *TaskWatcher) runTask(value []byte) {
 
 func (tw *TaskWatcher) watchTasks() {
 	url := fmt.Sprintf("http://127.0.0.1:8080/api/v1alpha1/tasks/?watch=true&filter=Node=%s,Status=Scheduled", tw.HostName)
-	taskInformar := informer.NewInformer(url)
+	taskInformer := informer.NewInformer(url)
 
-	taskInformar.AddEventHandler(informer.ResourceEventHandlerFuncs{
+	taskInformer.AddEventHandler(informer.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			logger.Info(nil, "watchTasks added task: %v", obj)
 
@@ -62,7 +62,7 @@ func (tw *TaskWatcher) watchTasks() {
 		},
 	})
 
-	taskInformar.Start()
+	taskInformer.Start()
 }
 
 func (tw *TaskWatcher) Run() {
