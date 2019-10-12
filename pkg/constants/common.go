@@ -25,4 +25,8 @@ const (
 	TaskIdPrefix = "t-"
 )
 
+const (
+	JobIdPrefix = "j-"
+)
+
 const MIME_MERGEPATCH = "application/merge-patch+json"

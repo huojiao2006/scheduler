@@ -484,3 +484,37 @@ func DescribeJobs(request *restful.Request, response *restful.Response) {
 
 	listWatch("DescribeJobs", key, filter, watch, response)
 }
+
+func CreateCron(request *restful.Request, response *restful.Response) {
+	cron := request.PathParameter("cron_name")
+	cronInfo := new(models.APIInfo)
+
+	err := request.ReadEntity(&cronInfo)
+	if err != nil {
+		logger.Error(nil, "CreateCron request data error %+v.", err)
+		response.WriteHeaderAndEntity(http.StatusInternalServerError, Wrap(err))
+		return
+	}
+
+	key := "crons/" + cron
+
+	err = putInfo(key, cronInfo.Info, -1)
+	if err != nil {
+		logger.Debug(nil, "CreateCron putInfo error %+v.", err)
+		response.WriteHeaderAndEntity(http.StatusInternalServerError, Wrap(err))
+		return
+	}
+
+	logger.Debug(nil, "CreateCron success")
+
+	response.WriteHeaderAndEntity(http.StatusOK, "cron")
+}
+
+func DescribeCrons(request *restful.Request, response *restful.Response) {
+	watch := parseBool(request.QueryParameter("watch"))
+	filter := request.QueryParameter("filter")
+
+	key := "crons/"
+
+	listWatch("DescribeCrons", key, filter, watch, response)
+}

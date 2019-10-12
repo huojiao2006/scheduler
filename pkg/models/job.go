@@ -11,3 +11,8 @@ type JobInfo struct {
 	StartTime    time.Time `json:"StartTime"`
 	CompleteTime time.Time `json:"CompleteTime"`
 }
+
+type JobEvent struct {
+	Event   string  `json:"Event"`
+	JobInfo JobInfo `json:"JobInfo"`
+}

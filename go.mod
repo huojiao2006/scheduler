@@ -11,6 +11,9 @@ require (
 	github.com/google/gops v0.3.6
 	github.com/jinzhu/gorm v1.9.10
 	github.com/koding/multiconfig v0.0.0-20171124222453-69c27309b2d7
+	github.com/robfig/cron v1.2.0
+	github.com/sony/sonyflake v1.0.0
+	github.com/speps/go-hashids v2.0.0+incompatible
 	golang.org/x/net v0.0.0-20190724013045-ca1201d0de80 // indirect
 	google.golang.org/grpc v1.22.1 // indirect
 )

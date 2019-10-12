@@ -89,6 +89,23 @@ func WebService() *restful.WebService {
 		Consumes(restful.MIME_JSON, constants.MIME_MERGEPATCH).
 		Produces(restful.MIME_JSON))
 
+	tags = []string{"Cron"}
+
+	ws.Route(ws.POST("/crons/{cron_name}").To(CreateCron).
+		Doc("Create Cron").
+		Param(ws.PathParameter("cron_name", "Specify cron").DataType("string").Required(true).DefaultValue("")).
+		Metadata(restfulspec.KeyOpenAPITags, tags).
+		Consumes(restful.MIME_JSON, constants.MIME_MERGEPATCH).
+		Produces(restful.MIME_JSON))
+
+	ws.Route(ws.GET("/crons/").To(DescribeCrons).
+		Doc("Describe Crons").
+		Param(ws.QueryParameter("watch", "watch resource, true/false.").DataType("bool").DefaultValue("false").Required(false)).
+		Param(ws.QueryParameter("filter", "filter, eg. group=abc.").DataType("string").DefaultValue("").Required(false)).
+		Metadata(restfulspec.KeyOpenAPITags, tags).
+		Consumes(restful.MIME_JSON, constants.MIME_MERGEPATCH).
+		Produces(restful.MIME_JSON))
+
 	return ws
 }
 

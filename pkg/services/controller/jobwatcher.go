@@ -6,6 +6,7 @@ package controller
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"openpitrix.io/scheduler/pkg/client/informer"
 	"openpitrix.io/scheduler/pkg/logger"
@@ -13,18 +14,20 @@ import (
 )
 
 type JobWatcher struct {
-	jobChan chan models.JobInfo
+	filter  string
+	jobChan chan models.JobEvent
 }
 
-func NewJobWatcher() *JobWatcher {
+func NewJobWatcher(filter string) *JobWatcher {
 	jw := &JobWatcher{
-		jobChan: make(chan models.JobInfo, 100),
+		filter:  filter,
+		jobChan: make(chan models.JobEvent, 100),
 	}
 
 	return jw
 }
 
-func (jw *JobWatcher) scheduleJob(value []byte) {
+func (jw *JobWatcher) scheduleJob(event string, value []byte) {
 	jobInfo := models.JobInfo{}
 
 	err := json.Unmarshal(value, &jobInfo)
@@ -33,11 +36,23 @@ func (jw *JobWatcher) scheduleJob(value []byte) {
 		return
 	}
 
-	jw.jobChan <- jobInfo
+	jobEvent := models.JobEvent{
+		Event:   event,
+		JobInfo: jobInfo,
+	}
+
+	jw.jobChan <- jobEvent
 }
 
 func (jw *JobWatcher) watchJobs() {
-	jobInformar := informer.NewInformer("http://127.0.0.1:8080/api/v1alpha1/jobs/?watch=true&filter=Status=Created")
+	informerURL := "http://127.0.0.1:8080/api/v1alpha1/jobs/?watch=true"
+	if jw.filter == "" {
+		informerURL = "http://127.0.0.1:8080/api/v1alpha1/jobs/?watch=true"
+	} else {
+		informerURL = fmt.Sprintf("http://127.0.0.1:8080/api/v1alpha1/jobs/?watch=true&filter=%s", jw.filter)
+	}
+
+	jobInformar := informer.NewInformer(informerURL)
 
 	jobInformar.AddEventHandler(informer.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
@@ -45,16 +60,30 @@ func (jw *JobWatcher) watchJobs() {
 
 			info, ok := (obj).(models.Info)
 			if ok {
-				jw.scheduleJob(info.Value)
+				jw.scheduleJob("ADD", info.Value)
 			} else {
-				logger.Info(nil, "watchJobs data error")
+				logger.Error(nil, "watchJobs data error")
 			}
 		},
 		DeleteFunc: func(obj interface{}) {
 			logger.Info(nil, "watchJobs deleted job: %v", obj)
+
+			info, ok := (obj).(models.Info)
+			if ok {
+				jw.scheduleJob("DELETE", info.Value)
+			} else {
+				logger.Error(nil, "watchJobs data error")
+			}
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			logger.Info(nil, "watchJobs updated job: %v", newObj)
+
+			info, ok := (newObj).(models.Info)
+			if ok {
+				jw.scheduleJob("MODIFY", info.Value)
+			} else {
+				logger.Error(nil, "watchJobs data error")
+			}
 		},
 	})
 
