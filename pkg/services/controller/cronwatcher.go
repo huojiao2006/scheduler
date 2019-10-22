@@ -7,6 +7,7 @@ package controller
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"openpitrix.io/scheduler/pkg/client/informer"
 	"openpitrix.io/scheduler/pkg/config"
@@ -28,13 +29,17 @@ func NewCronWatcher(filter string) *CronWatcher {
 	return cw
 }
 
-func (cw *CronWatcher) scheduleCron(event string, value []byte) {
+func (cw *CronWatcher) scheduleCron(event string, key string, value []byte) {
 	cronInfo := models.CronInfo{}
 
-	err := json.Unmarshal(value, &cronInfo)
-	if err != nil {
-		logger.Error(nil, "Unmarshal CronInfo error: %v", err)
-		return
+	if event == "DELETE" {
+		cronInfo.Name = strings.TrimPrefix(key, "crons/")
+	} else {
+		err := json.Unmarshal(value, &cronInfo)
+		if err != nil {
+			logger.Error(nil, "Unmarshal CronInfo error: %v", err)
+			return
+		}
 	}
 
 	cronEvent := models.CronEvent{
@@ -55,17 +60,17 @@ func (cw *CronWatcher) watchCrons() {
 		informerURL = fmt.Sprintf("http://%s:%s/api/v1alpha1/crons/?watch=true&filter=%s", cfg.ApiServer.ApiHost, cfg.ApiServer.ApiPort, cw.filter)
 	}
 
-	cronInformar := informer.NewInformer(informerURL)
+	cronInformer := informer.NewInformer(informerURL)
 
-	cronInformar.AddEventHandler(informer.ResourceEventHandlerFuncs{
+	cronInformer.AddEventHandler(informer.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			logger.Info(nil, "watchCrons added cron: %v", obj)
 
 			info, ok := (obj).(models.Info)
 			if ok {
-				cw.scheduleCron("ADD", info.Value)
+				cw.scheduleCron("ADD", info.Key, info.Value)
 			} else {
-				logger.Info(nil, "watchCrons data error")
+				logger.Error(nil, "watchCrons data error")
 			}
 		},
 		DeleteFunc: func(obj interface{}) {
@@ -73,9 +78,9 @@ func (cw *CronWatcher) watchCrons() {
 
 			info, ok := (obj).(models.Info)
 			if ok {
-				cw.scheduleCron("DELETE", info.Value)
+				cw.scheduleCron("DELETE", info.Key, info.Value)
 			} else {
-				logger.Info(nil, "watchCrons data error")
+				logger.Error(nil, "watchCrons data error")
 			}
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
@@ -83,14 +88,14 @@ func (cw *CronWatcher) watchCrons() {
 
 			info, ok := (newObj).(models.Info)
 			if ok {
-				cw.scheduleCron("MODIFY", info.Value)
+				cw.scheduleCron("MODIFY", info.Key, info.Value)
 			} else {
-				logger.Info(nil, "watchCrons data error")
+				logger.Error(nil, "watchCrons data error")
 			}
 		},
 	})
 
-	cronInformar.Start()
+	cronInformer.Start()
 }
 
 func (cw *CronWatcher) Run() {

@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/robfig/cron"
+	"github.com/robfig/cron/v3"
 
 	"openpitrix.io/scheduler/pkg/client/writer"
 	"openpitrix.io/scheduler/pkg/config"
@@ -20,9 +20,11 @@ import (
 )
 
 type CronRunner struct {
+	entryId    cron.EntryID
 	cronCore   *cron.Cron
 	cronInfo   models.CronInfo
 	jobWatcher *JobWatcher
+	stopChan   chan string
 }
 
 func NewJobId() string {
@@ -94,11 +96,14 @@ func NewCronRunner(cronCore *cron.Cron, cronInfo models.CronInfo) *CronRunner {
 		cronCore:   cronCore,
 		cronInfo:   cronInfo,
 		jobWatcher: NewJobWatcher(fmt.Sprintf("Owner=%s", cronInfo.Name)),
+		stopChan:   make(chan string, 1),
 	}
 	return cr
 }
 
 func (cr *CronRunner) jobMonitor() {
+	defer close(cr.stopChan)
+
 	cronInfoMonitor := models.CronInfo{
 		Name:             cr.cronInfo.Name,
 		Script:           cr.cronInfo.Script,
@@ -109,6 +114,8 @@ func (cr *CronRunner) jobMonitor() {
 
 	for {
 		select {
+		case <-cr.stopChan:
+			return
 		case jobEvent := <-cr.jobWatcher.jobChan:
 			logger.Info(nil, "jobMonitor %v", jobEvent)
 			switch jobEvent.JobInfo.Status {
@@ -125,11 +132,22 @@ func (cr *CronRunner) jobMonitor() {
 }
 
 func (cr *CronRunner) Run() {
-	logger.Info(nil, "Cron Runner Start Cron[%v]", cr.cronInfo)
+	logger.Info(nil, "Cron Runner Starting Cron[%v]", cr.cronInfo)
 
-	cr.cronCore.AddFunc(cr.cronInfo.Script, cr.cronFunc)
+	cr.entryId, _ = cr.cronCore.AddFunc(cr.cronInfo.Script, cr.cronFunc)
+
+	logger.Info(nil, "Cron Runner Started Cron[%d]", cr.entryId)
 
 	cr.jobWatcher.watchJobs()
 
 	cr.jobMonitor()
+
+	logger.Info(nil, "Cron Runner Stopped Cron %d", cr.entryId)
+}
+
+func (cr *CronRunner) Stop() {
+	logger.Info(nil, "Cron Runner Stopping Cron %d", cr.entryId)
+
+	cr.cronCore.Remove(cr.entryId)
+	cr.stopChan <- "stop"
 }

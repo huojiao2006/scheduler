@@ -105,6 +105,13 @@ func WebService() *restful.WebService {
 		Consumes(restful.MIME_JSON, constants.MIME_MERGEPATCH).
 		Produces(restful.MIME_JSON))
 
+	ws.Route(ws.DELETE("/crons/{cron_name}").To(DeleteCrons).
+		Doc("Delete Crons").
+		Param(ws.PathParameter("cron_name", "Specify cron").DataType("string").Required(true).DefaultValue("")).
+		Metadata(restfulspec.KeyOpenAPITags, tags).
+		Consumes(restful.MIME_JSON, constants.MIME_MERGEPATCH).
+		Produces(restful.MIME_JSON))
+
 	return ws
 }
 

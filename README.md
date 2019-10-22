@@ -26,8 +26,13 @@ curl "http://127.0.0.1:8080/api/v1alpha1/crons/?watch=true"
 
 创建两个cron
 ```
-curl -H "Accept: application/json" -H "Content-type: application/json" -X POST -d '{"Info": "{\"Name\":\"c-1234abcd\",\"Script\":\"0 * * * * *\"}"}' http://127.0.0.1:8080/api/v1alpha1/crons/c-1234abcd
-curl -H "Accept: application/json" -H "Content-type: application/json" -X POST -d '{"Info": "{\"Name\":\"c-1234defg\",\"Script\":\"0 */2 * * * *\"}"}' http://127.0.0.1:8080/api/v1alpha1/crons/c-1234defg
+curl -H "Accept: application/json" -H "Content-type: application/json" -X POST -d '{"Info": "{\"Name\":\"c-1234abcd\",\"Script\":\"* * * * *\"}"}' http://127.0.0.1:8080/api/v1alpha1/crons/c-1234abcd
+curl -H "Accept: application/json" -H "Content-type: application/json" -X POST -d '{"Info": "{\"Name\":\"c-1234defg\",\"Script\":\"*/2 * * * *\"}"}' http://127.0.0.1:8080/api/v1alpha1/crons/c-1234defg
+```
+
+删除cron
+```
+curl -XDELETE http://127.0.0.1:8080/api/v1alpha1/crons/c-1234abcd
 ```
 
 查看etcd信息

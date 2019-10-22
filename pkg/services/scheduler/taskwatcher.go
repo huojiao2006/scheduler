@@ -42,9 +42,9 @@ func (tw *TaskWatcher) watchTasks() {
 	cfg := config.GetInstance()
 
 	url := fmt.Sprintf("http://%s:%s/api/v1alpha1/tasks/?watch=true&filter=Node=,Status=Pending", cfg.ApiServer.ApiHost, cfg.ApiServer.ApiPort)
-	taskInformar := informer.NewInformer(url)
+	taskInformer := informer.NewInformer(url)
 
-	taskInformar.AddEventHandler(informer.ResourceEventHandlerFuncs{
+	taskInformer.AddEventHandler(informer.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			logger.Info(nil, "watchTasks added task: %v", obj)
 
@@ -63,7 +63,7 @@ func (tw *TaskWatcher) watchTasks() {
 		},
 	})
 
-	taskInformar.Start()
+	taskInformer.Start()
 }
 
 func (tw *TaskWatcher) Run() {

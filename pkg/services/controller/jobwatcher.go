@@ -55,9 +55,9 @@ func (jw *JobWatcher) watchJobs() {
 		informerURL = fmt.Sprintf("http://%s:%s/api/v1alpha1/jobs/?watch=true&filter=%s", cfg.ApiServer.ApiHost, cfg.ApiServer.ApiPort, jw.filter)
 	}
 
-	jobInformar := informer.NewInformer(informerURL)
+	jobInformer := informer.NewInformer(informerURL)
 
-	jobInformar.AddEventHandler(informer.ResourceEventHandlerFuncs{
+	jobInformer.AddEventHandler(informer.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			logger.Info(nil, "watchJobs added job: %v", obj)
 
@@ -90,7 +90,7 @@ func (jw *JobWatcher) watchJobs() {
 		},
 	})
 
-	jobInformar.Start()
+	jobInformer.Start()
 }
 
 func (jw *JobWatcher) Run() {

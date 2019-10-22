@@ -363,6 +363,19 @@ func putInfo(key string, info string, expireTime int64) error {
 	}
 }
 
+func deleteKey(key string) error {
+	ctx := context.Background()
+	e := global.GetInstance().GetEtcd()
+
+	_, err := e.Delete(ctx, key, clientv3.WithPrefix())
+
+	if err != nil {
+		logger.Error(ctx, "deleteKey [%s] to etcd failed: %+v", key, err)
+		return err
+	}
+	return err
+}
+
 func CreateNode(request *restful.Request, response *restful.Response) {
 	node := request.PathParameter("node_name")
 	nodeInfo := new(models.APIInfo)
@@ -517,4 +530,22 @@ func DescribeCrons(request *restful.Request, response *restful.Response) {
 	key := "crons/"
 
 	listWatch("DescribeCrons", key, filter, watch, response)
+}
+
+func DeleteCrons(request *restful.Request, response *restful.Response) {
+	cron := request.PathParameter("cron_name")
+
+	key := "crons/" + cron
+
+	err := deleteKey(key)
+
+	if err != nil {
+		logger.Debug(nil, "DeleteCrons deleteKey error %+v.", err)
+		response.WriteHeaderAndEntity(http.StatusInternalServerError, Wrap(err))
+		return
+	}
+
+	logger.Debug(nil, "DeleteCrons success")
+
+	response.WriteHeaderAndEntity(http.StatusOK, "cron")
 }
