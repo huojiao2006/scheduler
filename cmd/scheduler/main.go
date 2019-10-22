@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"openpitrix.io/scheduler/pkg/config"
 	"openpitrix.io/scheduler/pkg/logger"
 	"openpitrix.io/scheduler/pkg/services/scheduler"
 )
@@ -43,6 +44,8 @@ func mainFuncScheduler() {
 
 func main() {
 	exitHandler()
+
+	config.GetInstance().LoadConf()
 
 	mainFuncScheduler()
 

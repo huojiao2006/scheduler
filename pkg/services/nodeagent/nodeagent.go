@@ -6,10 +6,12 @@ package nodeagent
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"time"
 
 	"openpitrix.io/scheduler/pkg/client/writer"
+	"openpitrix.io/scheduler/pkg/config"
 	"openpitrix.io/scheduler/pkg/logger"
 	"openpitrix.io/scheduler/pkg/models"
 )
@@ -60,7 +62,11 @@ func (na *NodeAgent) updateTask(taskInfo models.TaskInfo) {
 		return
 	}
 
-	writer.WriteAPIServer("http://127.0.0.1:8080/api/v1alpha1", "tasks", taskInfo.Name, string(value))
+	cfg := config.GetInstance()
+
+	url := fmt.Sprintf("http://%s:%s/api/v1alpha1", cfg.ApiServer.ApiHost, cfg.ApiServer.ApiPort)
+
+	writer.WriteAPIServer(url, "tasks", taskInfo.Name, string(value))
 }
 
 func (na *NodeAgent) runTask(taskInfo models.TaskInfo) {

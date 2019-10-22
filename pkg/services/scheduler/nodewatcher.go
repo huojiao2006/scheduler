@@ -5,11 +5,13 @@
 package scheduler
 
 import (
+	"fmt"
 	"math/rand"
 	"strings"
 	"sync"
 
 	"openpitrix.io/scheduler/pkg/client/informer"
+	"openpitrix.io/scheduler/pkg/config"
 	"openpitrix.io/scheduler/pkg/logger"
 	"openpitrix.io/scheduler/pkg/models"
 )
@@ -57,7 +59,10 @@ func (nw *NodeWatcher) deleteNode(node string) {
 }
 
 func (nw *NodeWatcher) watchNodes() {
-	nodeInformer := informer.NewInformer("http://127.0.0.1:8080/api/v1alpha1/nodes/")
+	cfg := config.GetInstance()
+
+	url := fmt.Sprintf("http://%s:%s/api/v1alpha1/nodes/", cfg.ApiServer.ApiHost, cfg.ApiServer.ApiPort)
+	nodeInformer := informer.NewInformer(url)
 
 	nodeInformer.AddEventHandler(informer.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {

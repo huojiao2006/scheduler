@@ -23,7 +23,7 @@ type Config struct {
 		Endpoints string `default:"127.0.0.1:2379"`
 	}
 
-	App struct {
+	ApiServer struct {
 		Host string `default:"localhost"`
 		Port string `default:"8081"`
 

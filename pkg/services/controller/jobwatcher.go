@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"openpitrix.io/scheduler/pkg/client/informer"
+	"openpitrix.io/scheduler/pkg/config"
 	"openpitrix.io/scheduler/pkg/logger"
 	"openpitrix.io/scheduler/pkg/models"
 )
@@ -45,11 +46,13 @@ func (jw *JobWatcher) scheduleJob(event string, value []byte) {
 }
 
 func (jw *JobWatcher) watchJobs() {
-	informerURL := "http://127.0.0.1:8080/api/v1alpha1/jobs/?watch=true"
+	cfg := config.GetInstance()
+
+	informerURL := fmt.Sprintf("http://%s:%s/api/v1alpha1/jobs/?watch=true", cfg.ApiServer.ApiHost, cfg.ApiServer.ApiPort)
 	if jw.filter == "" {
-		informerURL = "http://127.0.0.1:8080/api/v1alpha1/jobs/?watch=true"
+		informerURL = fmt.Sprintf("http://%s:%s/api/v1alpha1/jobs/?watch=true", cfg.ApiServer.ApiHost, cfg.ApiServer.ApiPort)
 	} else {
-		informerURL = fmt.Sprintf("http://127.0.0.1:8080/api/v1alpha1/jobs/?watch=true&filter=%s", jw.filter)
+		informerURL = fmt.Sprintf("http://%s:%s/api/v1alpha1/jobs/?watch=true&filter=%s", cfg.ApiServer.ApiHost, cfg.ApiServer.ApiPort, jw.filter)
 	}
 
 	jobInformar := informer.NewInformer(informerURL)

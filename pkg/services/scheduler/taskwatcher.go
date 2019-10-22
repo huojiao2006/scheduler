@@ -6,8 +6,10 @@ package scheduler
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"openpitrix.io/scheduler/pkg/client/informer"
+	"openpitrix.io/scheduler/pkg/config"
 	"openpitrix.io/scheduler/pkg/logger"
 	"openpitrix.io/scheduler/pkg/models"
 )
@@ -37,7 +39,10 @@ func (tw *TaskWatcher) scheduleTask(value []byte) {
 }
 
 func (tw *TaskWatcher) watchTasks() {
-	taskInformar := informer.NewInformer("http://127.0.0.1:8080/api/v1alpha1/tasks/?watch=true&filter=Node=,Status=Pending")
+	cfg := config.GetInstance()
+
+	url := fmt.Sprintf("http://%s:%s/api/v1alpha1/tasks/?watch=true&filter=Node=,Status=Pending", cfg.ApiServer.ApiHost, cfg.ApiServer.ApiPort)
+	taskInformar := informer.NewInformer(url)
 
 	taskInformar.AddEventHandler(informer.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {

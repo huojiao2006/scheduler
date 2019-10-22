@@ -6,9 +6,11 @@ package nodeagent
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"openpitrix.io/scheduler/pkg/client/writer"
+	"openpitrix.io/scheduler/pkg/config"
 	"openpitrix.io/scheduler/pkg/logger"
 	"openpitrix.io/scheduler/pkg/models"
 )
@@ -39,7 +41,10 @@ func (ar *AliveReporter) doHeartBeat() {
 		return
 	}
 
-	writer.WriteAPIServer("http://127.0.0.1:8080/api/v1alpha1", "nodes", ar.nodeAgent.HostName, string(value))
+	cfg := config.GetInstance()
+
+	url := fmt.Sprintf("http://%s:%s/api/v1alpha1", cfg.ApiServer.ApiHost, cfg.ApiServer.ApiPort)
+	writer.WriteAPIServer(url, "nodes", ar.nodeAgent.HostName, string(value))
 }
 
 func (ar *AliveReporter) HeartBeat() {

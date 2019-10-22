@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"time"
 
 	"context"
 
@@ -111,37 +110,6 @@ func WebService() *restful.WebService {
 
 var Container = restful.DefaultContainer
 
-func stream(w http.ResponseWriter) {
-	flusher, ok := w.(http.Flusher)
-	if !ok {
-		http.Error(w, "Server does not support Flusher!", http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	timer := time.NewTicker(time.Second * 2)
-	defer timer.Stop()
-	for {
-		select {
-		case <-timer.C:
-			logger.Info(nil, "Write")
-			w.Write([]byte("timer\n"))
-			flusher.Flush()
-		}
-	}
-}
-
-func handler(w http.ResponseWriter, r *http.Request) {
-	stream(w)
-}
-
-func test() {
-	http.HandleFunc("/", handler)
-	http.ListenAndServe(":4567", nil)
-}
-
 func Run() {
 	Container.Add(WebService())
 	enableCORS()
@@ -150,10 +118,8 @@ func Run() {
 
 	go watchGlobal("nodes/")
 
-	go test()
-
 	cfg := config.GetInstance()
-	apiPort, _ := strconv.Atoi(cfg.App.ApiPort)
+	apiPort, _ := strconv.Atoi(cfg.ApiServer.ApiPort)
 	listen := fmt.Sprintf(":%d", apiPort)
 
 	logger.Info(nil, "%+v", http.ListenAndServe(listen, nil))

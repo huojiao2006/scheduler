@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"openpitrix.io/scheduler/pkg/client/informer"
+	"openpitrix.io/scheduler/pkg/config"
 	"openpitrix.io/scheduler/pkg/logger"
 	"openpitrix.io/scheduler/pkg/models"
 )
@@ -45,11 +46,13 @@ func (cw *CronWatcher) scheduleCron(event string, value []byte) {
 }
 
 func (cw *CronWatcher) watchCrons() {
-	informerURL := "http://127.0.0.1:8080/api/v1alpha1/crons/?watch=true"
+	cfg := config.GetInstance()
+
+	informerURL := fmt.Sprintf("http://%s:%s/api/v1alpha1/crons/?watch=true", cfg.ApiServer.ApiHost, cfg.ApiServer.ApiPort)
 	if cw.filter == "" {
-		informerURL = "http://127.0.0.1:8080/api/v1alpha1/crons/?watch=true"
+		informerURL = fmt.Sprintf("http://%s:%s/api/v1alpha1/crons/?watch=true", cfg.ApiServer.ApiHost, cfg.ApiServer.ApiPort)
 	} else {
-		informerURL = fmt.Sprintf("http://127.0.0.1:8080/api/v1alpha1/crons/?watch=true&filter=%s", cw.filter)
+		informerURL = fmt.Sprintf("http://%s:%s/api/v1alpha1/crons/?watch=true&filter=%s", cfg.ApiServer.ApiHost, cfg.ApiServer.ApiPort, cw.filter)
 	}
 
 	cronInformar := informer.NewInformer(informerURL)

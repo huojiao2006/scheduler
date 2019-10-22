@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"openpitrix.io/scheduler/pkg/config"
 	"openpitrix.io/scheduler/pkg/logger"
 )
 
@@ -172,7 +173,12 @@ func NewInformer(url string) *Informer {
 func main() {
 	exitHandler()
 
-	informer := NewInformer("http://127.0.0.1:8080/api/v1alpha1/nodes/node1")
+	config.GetInstance().LoadConf()
+
+	cfg := config.GetInstance()
+
+	url := fmt.Sprintf("http://%s:%s/api/v1alpha1/nodes/node1", cfg.ApiServer.ApiHost, cfg.ApiServer.ApiPort)
+	informer := NewInformer(url)
 
 	informer.AddEventHandler(ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
