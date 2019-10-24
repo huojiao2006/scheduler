@@ -1,0 +1,38 @@
+# Copyright 2019 The Scheduler Authors. All rights reserved.
+# Use of this source code is governed by a Apache license
+# that can be found in the LICENSE file.
+
+version: '3'
+
+services:
+  scheduler-etcd:
+    image: "quay.io/coreos/etcd:v3.2.18"
+    command: etcd --data-dir /data --listen-client-urls http://0.0.0.0:2379 --advertise-client-urls http://scheduler-etcd:2379 --max-snapshots 5 --max-wals 5 --auto-compaction-retention=168
+    volumes:
+      - ${DATA_PATH}/etcd:/data
+    ports:
+     - "12379:2379" # for unit-test & debug
+    container_name: "scheduler-etcd"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: ${SCHEDULER_LOG_MAX_SIZE}
+        max-file: ${SCHEDULER_LOG_MAX_FILE}
+
+  scheduler-apiserver:
+    container_name: "scheduler-apiserver"
+    image: "scheduler:latest"
+    command: "/bin/sh -c 'while sleep 3600; do :; done'"
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+    depends_on:
+      - scheduler-etcd
+    environment:
+      - SCHEDULER_LOG_LEVEL=${SCHEDULER_LOG_LEVEL}
+      - SCHEDULER_ETCD_ENDPOINTS="scheduler-etcd:2379"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: ${SCHEDULER_LOG_MAX_SIZE}
+        max-file: ${SCHEDULER_LOG_MAX_FILE}

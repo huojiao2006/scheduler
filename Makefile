@@ -9,5 +9,19 @@ dev:
 	GO111MODULE=on CGO_ENABLED=0 GOOS=linux go build -v -a -installsuffix cgo -ldflags '-w' -o ./nodeagent cmd/nodeagent/main.go
 	echo "Built successfully"
 
+build:
+	docker build -t scheduler -f ./Dockerfile .
+
 clean:
 	rm -f apiserver controller scheduler nodeagent
+
+
+.PHONY: compose-up
+compose-up: ## Launch Scheduler in docker compose
+	docker-compose up -d scheduler-apiserver
+	@echo "compose-up done"
+
+.PHONY: compose-down
+compose-down: ## Shutdown docker compose
+	docker-compose down
+	@echo "compose-down done"
