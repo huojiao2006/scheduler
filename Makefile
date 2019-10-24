@@ -18,7 +18,7 @@ clean:
 
 .PHONY: compose-up
 compose-up: ## Launch Scheduler in docker compose
-	docker-compose up -d scheduler-apiserver
+	docker-compose up -d
 	@echo "compose-up done"
 
 .PHONY: compose-down

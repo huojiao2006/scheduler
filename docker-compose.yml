@@ -22,7 +22,7 @@ services:
   scheduler-apiserver:
     container_name: "scheduler-apiserver"
     image: "scheduler:latest"
-    command: "/bin/sh -c 'while sleep 3600; do :; done'"
+    command: "/scheduler/apiserver"
     ports:
       - "8080:8080"
       - "8081:8081"
@@ -30,7 +30,61 @@ services:
       - scheduler-etcd
     environment:
       - SCHEDULER_LOG_LEVEL=${SCHEDULER_LOG_LEVEL}
-      - SCHEDULER_ETCD_ENDPOINTS="scheduler-etcd:2379"
+      - SCHEDULER_ETCD_ENDPOINTS=${ETCD_ENDPOINTS}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: ${SCHEDULER_LOG_MAX_SIZE}
+        max-file: ${SCHEDULER_LOG_MAX_FILE}
+
+  scheduler-nodeagent:
+    container_name: "scheduler-nodeagent"
+    image: "scheduler:latest"
+    command: "/scheduler/nodeagent"
+    links:
+      - scheduler-apiserver:scheduler-apiserver
+    depends_on:
+      - scheduler-apiserver
+    environment:
+      - SCHEDULER_LOG_LEVEL=${SCHEDULER_LOG_LEVEL}
+      - SCHEDULER_API_SERVER_API_HOST=${SCHEDULER_API_SERVER_API_HOST}
+      - SCHEDULER_API_SERVER_API_PORT=${SCHEDULER_API_SERVER_API_PORT}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: ${SCHEDULER_LOG_MAX_SIZE}
+        max-file: ${SCHEDULER_LOG_MAX_FILE}
+
+  scheduler-scheduler:
+    container_name: "scheduler-scheduler"
+    image: "scheduler:latest"
+    command: "/scheduler/scheduler"
+    links:
+      - scheduler-apiserver:scheduler-apiserver
+    depends_on:
+      - scheduler-apiserver
+    environment:
+      - SCHEDULER_LOG_LEVEL=${SCHEDULER_LOG_LEVEL}
+      - SCHEDULER_API_SERVER_API_HOST=${SCHEDULER_API_SERVER_API_HOST}
+      - SCHEDULER_API_SERVER_API_PORT=${SCHEDULER_API_SERVER_API_PORT}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: ${SCHEDULER_LOG_MAX_SIZE}
+        max-file: ${SCHEDULER_LOG_MAX_FILE}
+
+  scheduler-controller:
+    container_name: "scheduler-controller"
+    image: "scheduler:latest"
+    command: "/scheduler/controller"
+    links:
+      - scheduler-apiserver:scheduler-apiserver
+    depends_on:
+      - scheduler-apiserver
+    environment:
+      - SCHEDULER_LOG_LEVEL=${SCHEDULER_LOG_LEVEL}
+      - SCHEDULER_API_SERVER_API_HOST=${SCHEDULER_API_SERVER_API_HOST}
+      - SCHEDULER_API_SERVER_API_PORT=${SCHEDULER_API_SERVER_API_PORT}
     logging:
       driver: "json-file"
       options:
