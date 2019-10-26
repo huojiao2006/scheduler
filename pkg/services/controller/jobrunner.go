@@ -87,6 +87,7 @@ func (jr *JobRunner) taskMonitor(wg *sync.WaitGroup) {
 	jobInfoNew := models.JobInfo{
 		Name:  jr.jobInfo.Name,
 		Owner: jr.jobInfo.Owner,
+		Cmd:   jr.jobInfo.Cmd,
 	}
 
 	for {
@@ -122,6 +123,7 @@ func (jr *JobRunner) Run() {
 	taskInfo := models.TaskInfo{
 		Name:   taskId,
 		Owner:  jr.jobInfo.Name,
+		Cmd:    jr.jobInfo.Cmd,
 		Status: "Pending",
 	}
 

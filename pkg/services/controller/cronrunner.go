@@ -37,6 +37,7 @@ func (cr *CronRunner) cronFunc() {
 	jobInfo := models.JobInfo{
 		Name:   jobId,
 		Owner:  cr.cronInfo.Name,
+		Cmd:    cr.cronInfo.Cmd,
 		Status: "Created",
 	}
 
@@ -108,6 +109,7 @@ func (cr *CronRunner) jobMonitor() {
 		Name:             cr.cronInfo.Name,
 		Script:           cr.cronInfo.Script,
 		Owner:            cr.cronInfo.Owner,
+		Cmd:              cr.cronInfo.Cmd,
 		Status:           cr.cronInfo.Status,
 		LastScheduleTime: cr.cronInfo.LastScheduleTime,
 	}

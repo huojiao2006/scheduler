@@ -8,6 +8,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
+	"syscall"
 	"time"
 
 	"openpitrix.io/scheduler/pkg/client/writer"
@@ -69,6 +71,16 @@ func (na *NodeAgent) updateTask(taskInfo models.TaskInfo) {
 	writer.WriteAPIServer(url, "tasks", taskInfo.Name, string(value))
 }
 
+func (na *NodeAgent) runCmd(app string, args []string) {
+	cmd := exec.Command(app, args...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	cmd.Start()
+	cmd.Wait()
+}
+
 func (na *NodeAgent) runTask(taskInfo models.TaskInfo) {
 	//1.Start running task
 	taskInfo.Status = "Running"
@@ -76,7 +88,8 @@ func (na *NodeAgent) runTask(taskInfo models.TaskInfo) {
 	na.updateTask(taskInfo)
 
 	//2.Running task
-	time.Sleep(time.Second)
+	logger.Debug(nil, "Run task %v", taskInfo.Cmd)
+	na.runCmd(taskInfo.Cmd[0], taskInfo.Cmd[1:])
 
 	//3.Complete task
 	taskInfo.Status = "Completed"
