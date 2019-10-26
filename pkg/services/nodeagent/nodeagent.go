@@ -89,7 +89,9 @@ func (na *NodeAgent) runTask(taskInfo models.TaskInfo) {
 
 	//2.Running task
 	logger.Debug(nil, "Run task %v", taskInfo.Cmd)
-	na.runCmd(taskInfo.Cmd[0], taskInfo.Cmd[1:])
+	if len(taskInfo.Cmd) > 0 {
+		na.runCmd(taskInfo.Cmd[0], taskInfo.Cmd[1:])
+	}
 
 	//3.Complete task
 	taskInfo.Status = "Completed"
