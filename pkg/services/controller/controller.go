@@ -95,6 +95,7 @@ func (ct *Controller) stopCron(name string) {
 	ct.cronRunners.Unlock()
 	if !ok {
 		logger.Error(nil, "Controller stopCron error: cron does not exist")
+		return
 	}
 
 	cronRunner.Stop()
