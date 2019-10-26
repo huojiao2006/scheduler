@@ -10,6 +10,7 @@ RUN CGO_ENABLED=0 GO111MODULE=on go build -v -a -installsuffix cgo -ldflags '-w'
 RUN CGO_ENABLED=0 GO111MODULE=on go build -v -a -installsuffix cgo -ldflags '-w' -o /scheduler_bin/scheduler cmd/scheduler/main.go
 
 FROM alpine:3.9
+RUN apk add curl
 COPY --from=golang /scheduler_bin/apiserver /scheduler/apiserver
 COPY --from=golang /scheduler_bin/nodeagent /scheduler/nodeagent
 COPY --from=golang /scheduler_bin/controller /scheduler/controller
